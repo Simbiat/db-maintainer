@@ -1,0 +1,44 @@
+{
+    "name": "simbiat/db-maintainer",
+    "type": "library",
+    "keywords": [
+        "optimize",
+        "analyze",
+        "repair",
+        "check",
+        "fulltext",
+        "mysql",
+        "pdo",
+        "table",
+        "php"
+    ],
+    "description": "Library to maintain database tables using its built-in commands.",
+    "homepage": "https://github.com/Simbiat/db-maintainer",
+    "license": "AGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Dmitrii Kustov",
+            "email": "support@simbiat.dev",
+            "homepage": "https://www.simbiat.dev",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "simbiat/db-query": "^1.0.2",
+        "simbiat/db-manager": "^1.0.1",
+        "ext-mbstring": "*"
+    },
+    "replace": {
+        "simbiat/optimize-tables": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Simbiat\\Database\\Maintainer\\": "src/"
+        }
+    },
+    "support": {
+        "issues": "https://github.com/Simbiat/db-maintainer/issues",
+        "source": "https://github.com/Simbiat/db-maintainer"
+    }
+}
