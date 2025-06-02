@@ -101,17 +101,6 @@ trait TraitForMaintainer
     }
     
     /**
-     * Check if a schema has been analyzed today
-     * @param string $schema
-     *
-     * @return bool
-     */
-    public function isAnalyzed(string $schema): bool
-    {
-        return Query::query('SELECT `date` FROM `'.$this->prefix.'tables` WHERE `date`=CURRENT_DATE() AND `schema`=:schema LIMIT 1;', [':schema' => $schema], return: 'check');
-    }
-    
-    /**
      * Get supported features.
      * @return array
      */
