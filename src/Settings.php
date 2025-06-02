@@ -263,9 +263,9 @@ class Settings
      * @param string|array $column Column(s) name
      * @param bool         $delete Whether to remove the column(s) from the list
      *
-     * @return bool
+     * @return self
      */
-    public function excludeColumn(string $schema, string $table, string|array $column, bool $delete = false): bool
+    public function excludeColumn(string $schema, string $table, string|array $column, bool $delete = false): self
     {
         if (\is_string($column)) {
             $column = [$column];
@@ -276,9 +276,11 @@ class Settings
             }
         }
         if ($delete) {
-            return Query::query('INSERT IGNORE INTO `'.$this->prefix.'columns_exclude` (`schema`, `table`, `column`) VALUES (:schema, :table, :column);', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
+            Query::query('INSERT IGNORE INTO `'.$this->prefix.'columns_exclude` (`schema`, `table`, `column`) VALUES (:schema, :table, :column);', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
+        } else {
+            Query::query('DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND `table`=:table AND `column` IN (:column)', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
         }
-        return Query::query('DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND `table`=:table AND `column` IN (:column)', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
+        return $this;
     }
     
     /**
@@ -289,9 +291,9 @@ class Settings
      * @param string|array $column Column(s) name
      * @param bool         $delete Whether to remove the column(s) from the list
      *
-     * @return bool
+     * @return self
      */
-    public function includeColumn(string $schema, string $table, string|array $column, bool $delete = false): bool
+    public function includeColumn(string $schema, string $table, string|array $column, bool $delete = false): self
     {
         if (\is_string($column)) {
             $column = [$column];
@@ -302,8 +304,10 @@ class Settings
             }
         }
         if ($delete) {
-            return Query::query('INSERT IGNORE INTO `'.$this->prefix.'columns_include` (`schema`, `table`, `column`) VALUES (:schema, :table, :column);', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
+            Query::query('INSERT IGNORE INTO `'.$this->prefix.'columns_include` (`schema`, `table`, `column`) VALUES (:schema, :table, :column);', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
+        } else {
+            Query::query('DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND `table`=:table AND `column` IN (:column)', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
         }
-        return Query::query('DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND `table`=:table AND `column` IN (:column)', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
+        return $this;
     }
 }
