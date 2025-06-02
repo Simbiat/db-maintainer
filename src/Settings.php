@@ -103,7 +103,7 @@ class Settings
             Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_days_delay`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
-                ':value' => $days,
+                ':value' => [$days, 'int'],
             ]);
         } else {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
@@ -121,13 +121,13 @@ class Settings
      *
      * @return $this
      */
-    public function setTableFineTune(string $schema, string|array $table, #[ExpectedValues(['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram'])] string $setting, bool $flag): self
+    public function setTableFineTune(string $schema, string|array $table, #[ExpectedValues(['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'])] string $setting, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
         if (\is_string($table)) {
             $table = [$table];
         }
-        if (in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram'], true)) {
+        if (in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], true)) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$setting.'`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
@@ -165,13 +165,13 @@ class Settings
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_fragmentation`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
-            ':value' => $threshold,
+            ':value' => [$threshold, 'float'],
         ]);
         return $this;
     }
     
     /**
-     * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for OPTIMIZE or various flavors of ANALYZE.
+     * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for CHECK and ANALYZE commands.
      *
      * @param string       $schema    Schema name
      * @param string|array $table     Table name(s). If empty string or array - will update all tables.
@@ -192,7 +192,38 @@ class Settings
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_rows_delta`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
-            ':value' => $threshold,
+            ':value' => [$threshold, 'int'],
+        ]);
+        return $this;
+    }
+    
+    /**
+     * Set a number of buckets for histograms when using ANALYZE in MySQL 8+
+     *
+     * @param string       $schema Schema name
+     * @param string|array $table   Table name(s). If empty string or array - will update all tables.
+     * @param int          $buckets Number of buckets for histograms
+     *
+     * @return $this
+     */
+    public function setBuckets(string $schema, string|array $table, int $buckets = 100): self
+    {
+        $this->schemaTableChecker($schema, $table);
+        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        if ($buckets < 1) {
+            $buckets = 1;
+        }
+        #Values over 100 do not make sense either, so reverting them to default 10
+        if ($buckets > 1024) {
+            $buckets = 1024;
+        }
+        if (\is_string($table)) {
+            $table = [$table];
+        }
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `analyze_histogram_buckets`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+            ':schema' => $schema,
+            ':table' => [$table, 'in', 'string'],
+            ':value' => [$buckets, 'int'],
         ]);
         return $this;
     }

@@ -247,6 +247,17 @@ class Commander
             }
             return [];
         }
+        $settingFromLibrary = [];
+        if ($this->features['histogram']) {
+            #Get table settings for histograms, if available
+            $settingFromLibrary = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';', return: 'row');
+        }
+        if (empty($settingFromLibrary['analyze_histogram_buckets'])) {
+            $settingFromLibrary['analyze_histogram_buckets'] = 100;
+        }
+        if (empty($settingFromLibrary['analyze_histogram_auto'])) {
+            $settingFromLibrary['analyze_histogram_auto'] = false;
+        }
         $columns = Query::query(
             'SELECT `COLUMN_NAME`
                     FROM `information_schema`.`COLUMNS` AS `c`
@@ -288,7 +299,17 @@ class Commander
                                 WHERE `s`.`TABLE_SCHEMA` = `c`.`TABLE_SCHEMA`
                                   AND `s`.`TABLE_NAME` = `c`.`TABLE_NAME`
                                   AND `s`.`COLUMN_NAME` = `c`.`COLUMN_NAME`
-                        );',
+                        )'.($this->features['auto_histogram'] && $settingFromLibrary['analyze_histogram_auto'] ? '
+                        /*Exclude columns that have auto-update enabled already*/
+                        AND NOT EXISTS (
+                            SELECT 1 AS `flag`
+                                FROM `information_schema`.`column_statistics` AS `cs`
+                                WHERE `cs`.`SCHEMA_NAME` = `c`.`TABLE_SCHEMA`
+                                  AND `cs`.`TABLE_NAME` = `c`.`TABLE_NAME`
+                                  AND `cs`.`COLUMN_NAME` = `c`.`COLUMN_NAME`
+                                  AND JSON_EXTRACT(`cs`.`HISTOGRAM`, "$.auto-update")=\'true\'
+                        )
+                        ' : '').';',
             [':schema' => $schema, ':table' => $table],
             return: 'column');
         #Merge with columns that are explicitly included. Need to do this in a separate query, because otherwise table's schema needs to be provided, and that would require getting is somehow, that would complicate things even more
@@ -326,7 +347,11 @@ class Commander
         }
         if ($this->features['histogram']) {
             #MySQL format
-            $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'`;'];
+            if ($this->features['auto_histogram']) {
+                $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settingFromLibrary['analyze_histogram_buckets'].' BUCKETS '.($settingFromLibrary['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;'];
+            } else {
+                $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settingFromLibrary['analyze_histogram_buckets'].' BUCKETS;'];
+            }
         } else {
             #MariaDB format
             $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.implode('`, `', $columns).'`) INDEXES ();'];

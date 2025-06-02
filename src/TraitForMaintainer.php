@@ -107,6 +107,13 @@ trait TraitForMaintainer
     public function getFeatures(): array
     {
         $features = [];
+        #Get database version
+        $version = Query::query('SELECT VERSION();', return: 'column')[0];
+        if (mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false) {
+            $features['mariadb'] = true;
+        } else {
+            $features['mariadb'] = false;
+        }
         $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
         #If the value is `never`, it means MariaDB does not use persistent statistics at all.
         if (\is_string($analyze_persistent) && strcasecmp($analyze_persistent, 'never') !== 0) {
@@ -122,11 +129,16 @@ trait TraitForMaintainer
             $features['skip_persistent'] = true;
         }
         #Check if histograms are supported. MySQL 8+.
-        $histogram = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'histogram_generation_max_mem_size\';', fetch_argument: 1, return: 'value');
-        if (is_numeric($histogram)) {
+        if (!$features['mariadb'] && version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
             $features['histogram'] = true;
+            if (version_compare(mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
+                $features['auto_histogram'] = true;
+            } else {
+                $features['auto_histogram'] = false;
+            }
         } else {
             $features['histogram'] = false;
+            $features['auto_histogram'] = false;
         }
         #Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
         $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
@@ -136,8 +148,7 @@ trait TraitForMaintainer
             $features['file_per_table'] = false;
         }
         #Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        $innodb_compress = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_compression_level\';', fetch_argument: 1, return: 'value');
-        if (is_numeric($innodb_compress)) {
+        if ($features['mariadb'] && version_compare(mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
             $features['page_compression'] = true;
         } else {
             $features['page_compression'] = false;
@@ -147,13 +158,6 @@ trait TraitForMaintainer
             $features['set_global'] = true;
         } else {
             $features['set_global'] = false;
-        }
-        #Get database version
-        $version = Query::query('SELECT VERSION();', return: 'column')[0];
-        if (mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false) {
-            $features['mariadb'] = true;
-        } else {
-            $features['mariadb'] = false;
         }
         #Check if FLUSH is possible
         if (Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE`=\'RELOAD\';', return: 'count') > 0) {
