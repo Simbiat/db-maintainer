@@ -129,6 +129,8 @@ class Commander
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
             if (is_string($result)) {
+                #Set repair flag
+                Query::query('UPDATE `'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
                 if ($autoRepair) {
                     if ($this->repair($schema, $table, $integrate, $run, $preferExtended)) {
                         if ($integrate) {
