@@ -555,7 +555,7 @@ class Analyzer
         }
         #Get the exact number of rows if we use them. Limit only to tables that have not been counted since before today, to help with overall performance in case of multiple runs
         foreach (Query::query('SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
-                                    WHERE `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) ORDER BY `data_length_current`;',
+                                    WHERE `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND `only_if_changed`=1 AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) ORDER BY `data_length_current`;',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all') as $data) {
             $count = (string)Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
             try {
