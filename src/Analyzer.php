@@ -469,6 +469,12 @@ class Analyzer
         if ($flat) {
             $activate = $commander->maintenance();
             $commands = array_merge((\is_string($activate) ? [$activate] : []), ...array_values($commands[$schema]));
+            if ($this->features['set_global']) {
+                $commands[] = /** @lang SQL */
+                    'SET @@`GLOBAL.innodb_optimize_fulltext_only`=0;';
+                $commands[] = /** @lang SQL */
+                    'SET @@GLOBAL.innodb_ft_num_word_optimize=DEFAULT;';
+            }
             if ($this->settings['use_flush']) {
                 $result = $commander->flush();
                 if (\is_string($result)) {
