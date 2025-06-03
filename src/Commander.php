@@ -129,17 +129,20 @@ class Commander
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
             if (is_string($result)) {
-                #Set repair flag
-                Query::query('UPDATE `'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
-                if ($autoRepair) {
-                    if ($this->repair($schema, $table, $integrate, $run, $preferExtended)) {
-                        if ($integrate) {
-                            #Need to wrap the UPDATE in array due to how `Query` works
-                            return Query::query([$commands[1]]);
+                #InnoDB does not support REPAIR
+                if (preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
+                    #Set repair flag
+                    Query::query('UPDATE `'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
+                    if ($autoRepair) {
+                        if ($this->repair($schema, $table, $integrate, $run, $preferExtended)) {
+                            if ($integrate) {
+                                #Need to wrap the UPDATE in array due to how `Query` works
+                                return Query::query([$commands[1]]);
+                            }
+                            return true;
                         }
-                        return true;
+                        return false;
                     }
-                    return false;
                 }
                 throw new \RuntimeException('Failed to `CHECK` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
@@ -247,17 +250,7 @@ class Commander
             }
             return [];
         }
-        $settingFromLibrary = [];
-        if ($this->features['histogram']) {
-            #Get table settings for histograms, if available
-            $settingFromLibrary = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';', return: 'row');
-        }
-        if (empty($settingFromLibrary['analyze_histogram_buckets'])) {
-            $settingFromLibrary['analyze_histogram_buckets'] = 100;
-        }
-        if (empty($settingFromLibrary['analyze_histogram_auto'])) {
-            $settingFromLibrary['analyze_histogram_auto'] = false;
-        }
+        $settingFromLibrary = $this->getHistogramSettings($schema, $table);
         $columns = Query::query(
             'SELECT `COLUMN_NAME`
                     FROM `information_schema`.`COLUMNS` AS `c`
@@ -273,11 +266,11 @@ class Commander
                                                 \'TINYTEXT\', \'TEXT\', \'MEDIUMTEXT\', \'LONGTEXT\',
                                                 \'TINYBLOB\', \'BLOB\', \'MEDIUMBLOB\', \'LONGBLOB\',
                                                 \'BINARY\', \'VARBINARY\',
-                                                /*BIT is usually used for flags or bitmasks and has low cardinality, but it also is stored as binary, so little to no benefit from histograms*/
+                                                /*BIT is usually used for flags or bitmasks and has low cardinality, but it is also stored as binary, so little to no benefit from histograms*/
                                                 \'BIT\',
                                                 /*YEAR has low cardinality, minimal benefit from histograms*/
                                                 \'YEAR\',
-                                                /*While the other date and time types may benefit from histograms in some cases, they are niche, due to the type usually used in range comparison, which work better with indexes*/
+                                                /*While the other date and time types may benefit from histograms in some cases, they are niche, due to the types usually used in range comparisons, which work better with indexes*/
                                                 \'DATE\', \'TIME\', \'DATETIME\', \'TIMESTAMP\',
                                                 /*UUID is MariaDB specific and generally implies sequential and somewhat uniform values, thus do not benefit from histograms*/
                                                 \'UUID\'
@@ -290,7 +283,7 @@ class Commander
                         AND (`GENERATION_EXPRESSION` = \'\' OR `GENERATION_EXPRESSION` IS NULL)
                         /*If the maximum length is too big, we are likely dealing with text (like description columns) or otherwise non-uniform data (like JSON in VARCHAR) or generally data with too much variance. Either of these cases is unlikely to benefit from histograms.*/
                         AND (`CHARACTER_MAXIMUM_LENGTH` IS NULL OR `CHARACTER_MAXIMUM_LENGTH` < 64)
-                        /*Columns using TINYINT(1) or CHAR(1) to CHAR(4) or VARCHAR(1) to VARCHAR(4) are often used as flags, including but not limited to boolean values. This implies low cardinality, which does not benefit much from histograms*/
+                        /*Columns using TINYINT(1) or CHAR(1) to CHAR(4) or VARCHAR(1) to VARCHAR(4) are often used as flags, including but not limited to boolean values. This implies low cardinality, which benefits little from histograms*/
                         AND `COLUMN_TYPE` NOT LIKE \'%TINYINT(1)%\' AND `COLUMN_TYPE` NOT LIKE \'%CHAR(1)%\' AND `COLUMN_TYPE` NOT LIKE \'%CHAR(2)%\' AND `COLUMN_TYPE` NOT LIKE \'%CHAR(3)%\' AND `COLUMN_TYPE` NOT LIKE \'%CHAR(4)%\'
                         /*Columns that are part of an index usually do not benefit from histograms*/
                         AND NOT EXISTS (
@@ -299,7 +292,7 @@ class Commander
                                 WHERE `s`.`TABLE_SCHEMA` = `c`.`TABLE_SCHEMA`
                                   AND `s`.`TABLE_NAME` = `c`.`TABLE_NAME`
                                   AND `s`.`COLUMN_NAME` = `c`.`COLUMN_NAME`
-                        )'.($this->features['auto_histogram'] && $settingFromLibrary['analyze_histogram_auto'] ? '
+                        )'.($this->features['auto_histogram'] && $settingFromLibrary['analyze_histogram_auto'] && !$noSkip ? '
                         /*Exclude columns that have auto-update enabled already*/
                         AND NOT EXISTS (
                             SELECT 1 AS `flag`
@@ -345,17 +338,7 @@ class Commander
                 throw new \UnexpectedValueException('Invalid table name `'.$column.'`;');
             }
         }
-        if ($this->features['histogram']) {
-            #MySQL format
-            if ($this->features['auto_histogram']) {
-                $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settingFromLibrary['analyze_histogram_buckets'].' BUCKETS '.($settingFromLibrary['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;'];
-            } else {
-                $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settingFromLibrary['analyze_histogram_buckets'].' BUCKETS;'];
-            }
-        } else {
-            #MariaDB format
-            $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.implode('`, `', $columns).'`) INDEXES ();'];
-        }
+        $commands = [$this->getHistogramCommand($schema, $table, $columns, $settingFromLibrary)];
         if ($integrate) {
             #We do *not* update the `analyze` flag, since regular ANALYZE may need to be run still
             $commands[] = /** @lang SQL */
@@ -376,16 +359,65 @@ class Commander
     }
     
     /**
+     * Helper function to generate `ANALYZE` command for histogram generation
+     * @param string $schema             Schema name
+     * @param string $table              Table name
+     * @param array  $columns            Columns to process
+     * @param array  $settingFromLibrary Histogram settings
+     *
+     * @return string
+     */
+    private function getHistogramCommand(string $schema, string $table, array $columns, array $settingFromLibrary): string
+    {
+        if ($this->features['histogram']) {
+            #MySQL format
+            if ($this->features['auto_histogram']) {
+                $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settingFromLibrary['analyze_histogram_buckets'].' BUCKETS '.($settingFromLibrary['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;';
+            } else {
+                $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settingFromLibrary['analyze_histogram_buckets'].' BUCKETS;';
+            }
+        } else {
+            #MariaDB format
+            $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.implode('`, `', $columns).'`) INDEXES ();';
+        }
+        return $command;
+    }
+    
+    /**
+     * Helper function to get histogram settings for a table, if any
+     * @param string $schema
+     * @param string $table
+     *
+     * @return array
+     */
+    private function getHistogramSettings(string $schema, string $table): array
+    {
+        $settingFromLibrary = [];
+        if ($this->features['histogram']) {
+            #Get table settings for histograms, if available
+            $settingFromLibrary = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';', return: 'row');
+        }
+        if (empty($settingFromLibrary['analyze_histogram_buckets'])) {
+            $settingFromLibrary['analyze_histogram_buckets'] = 100;
+        }
+        if (empty($settingFromLibrary['analyze_histogram_auto'])) {
+            $settingFromLibrary['analyze_histogram_auto'] = false;
+        }
+        return $settingFromLibrary;
+    }
+    
+    /**
      * `OPTIMIZE` the table
      *
      * @param string $schema    Schema name
      * @param string $table     Table name
      * @param bool   $integrate Whether to generate commands to update library's tables
      * @param bool   $run       Whether to run the commands or just return them
+     * @param bool   $noSkip    Whether to enforce statistics generation even if it's covered by regular `ANALYZE`. Used only for InnoDB tables.
      *
      * @return array|bool
      */
-    public function optimize(string $schema, string $table, bool $integrate = false, bool $run = false): array|bool
+    public function optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $noSkip = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
         if (preg_match('/^(InnoDB|MyISAM|Aria|Archive)$/ui', $details['ENGINE']) !== 1) {
@@ -412,34 +444,62 @@ class Commander
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
                 SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             #OPTIMIZE also implies ANALYZE for InnoDB tables
-            if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) !== 1) {
+            if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 $commands[] = /** @lang SQL */
                     'UPDATE `'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
         }
         if ($run) {
-            if ($integrate) {
-                Query::query($commands[0]);
+            $this->runOptimize($schema, $table, $integrate, $fulltext, $details, $commands);
+        }
+        #InnoDB recreates table and then does ANALYZE, which does not include histograms by default
+        if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$noSkip)) && preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
+            #We also need to check that `analyze_histogram` is enabled for the table in settings
+            Query::query('SELECT `analyze_histogram` FROM `maintainer__tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
+        ) {
+            $histogram = $this->histogram($schema, $table, $integrate, $run, $noSkip);
+            if ($run) {
+                return $histogram;
             }
-            $result = $this->checkResults(Query::query($commands[$integrate ? 1 : 0], return: 'all'));
-            if (is_string($result)) {
-                throw new \RuntimeException('Failed to `OPTIMIZE` `'.$schema.'`.`'.$table.'` with following error: '.$result);
-            }
-            #Optimize FULLTEXT only if we were able to change the innodb_optimize_fulltext_only
-            if ($fulltext && Query::query($commands[$integrate ? 2 : 1])) {
-                $this->optimizeFulltext($schema, $table, $commands, $integrate);
-            }
-            if ($integrate) {
-                #Need to wrap the UPDATE in array due to how `Query` works
-                Query::query([$commands[$fulltext ? 7 : 2]]);
-                if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) !== 1) {
-                    #Need to wrap the UPDATE in array due to how `Query` works
-                    Query::query([$commands[$fulltext ? 8 : 3]]);
-                }
-            }
+            $commands = array_merge($commands, $histogram);
+        } elseif ($run) {
             return true;
         }
         return $commands;
+    }
+    
+    /**
+     * Helper function to run OPTIMIZE commands
+     * @param string $schema    Schema name
+     * @param string $table     Table name
+     * @param bool   $integrate Whether to generate commands to update library's tables
+     * @param bool   $fulltext  Whether FULLTEXT optimization is required
+     * @param array  $details   Table details
+     * @param array  $commands  List of commands
+     *
+     * @return void
+     */
+    private function runOptimize(string $schema, string $table, bool $integrate, bool $fulltext, array $details, array $commands): void
+    {
+        if ($integrate) {
+            Query::query($commands[0]);
+        }
+        $result = $this->checkResults(Query::query($commands[$integrate ? 1 : 0], return: 'all'));
+        if (is_string($result)) {
+            throw new \RuntimeException('Failed to `OPTIMIZE` `'.$schema.'`.`'.$table.'` with following error: '.$result);
+        }
+        #Optimize FULLTEXT only if we were able to change the innodb_optimize_fulltext_only
+        if ($fulltext && Query::query($commands[$integrate ? 2 : 1])) {
+            $this->optimizeFulltext($schema, $table, $commands, $integrate);
+        }
+        if ($integrate) {
+            #Need to wrap the UPDATE in array due to how `Query` works
+            Query::query([$commands[$fulltext ? 7 : 2]]);
+            if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
+                #Need to wrap the UPDATE in array due to how `Query` works
+                Query::query([$commands[$fulltext ? 8 : 3]]);
+            }
+        }
     }
     
     /**
@@ -501,7 +561,7 @@ class Commander
     }
     
     /**
-     * `OPTIMIZE` the table
+     * Rebuild FULLTEXT indexes in a table
      *
      * @param string $schema    Schema name
      * @param string $table     Table name
