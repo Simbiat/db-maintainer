@@ -148,7 +148,7 @@ class Settings
      *
      * @return $this
      */
-    public function setThresholdFragmentation(string $schema, string|array $table, float $threshold = 10.0): self
+    public function setThresholdFragmentation(string $schema, string|array $table = [], float $threshold = 10.0): self
     {
         $this->schemaTableChecker($schema, $table);
         #Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -179,7 +179,7 @@ class Settings
      *
      * @return $this
      */
-    public function setThresholdRowsDelta(string $schema, string|array $table, int $threshold = 10000): self
+    public function setThresholdRowsDelta(string $schema, string|array $table = [], int $threshold = 10000): self
     {
         $this->schemaTableChecker($schema, $table);
         #Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -200,13 +200,13 @@ class Settings
     /**
      * Set a number of buckets for histograms when using ANALYZE in MySQL 8+
      *
-     * @param string       $schema Schema name
+     * @param string       $schema  Schema name
      * @param string|array $table   Table name(s). If empty string or array - will update all tables.
      * @param int          $buckets Number of buckets for histograms
      *
      * @return $this
      */
-    public function setBuckets(string $schema, string|array $table, int $buckets = 100): self
+    public function setBuckets(string $schema, string|array $table = [], int $buckets = 100): self
     {
         $this->schemaTableChecker($schema, $table);
         #Negative values do not make sense in this case, so reverting them to 0 for consistency
