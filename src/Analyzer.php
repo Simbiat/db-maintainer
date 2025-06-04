@@ -468,22 +468,31 @@ class Analyzer
         }
         if ($flat) {
             $activate = $commander->maintenance();
-            $commands = array_merge((\is_string($activate) ? [$activate] : []), ...array_values($commands[$schema]));
             if ($this->features['set_global']) {
-                $commands[] = /** @lang SQL */
-                    'SET @@`GLOBAL.innodb_optimize_fulltext_only`=0;';
-                $commands[] = /** @lang SQL */
-                    'SET @@GLOBAL.innodb_ft_num_word_optimize=DEFAULT;';
+                $fulltext = [/** @lang SQL */
+                    'SET @@`GLOBAL.innodb_optimize_fulltext_only`=0;',
+                    /** @lang SQL */
+                    'SET @@GLOBAL.innodb_ft_num_word_optimize=DEFAULT;'
+                ];
+            } else {
+                $fulltext = [];
             }
             if ($this->settings['use_flush']) {
-                $result = $commander->flush();
-                if (\is_string($result)) {
-                    $commands[] = $result;
+                $flush = $commander->flush();
+                if (\is_string($flush)) {
+                    $flush = [$flush];
+                } else {
+                    $flush = [];
                 }
+            } else {
+                $flush = [];
             }
             $deactivate = $commander->maintenance(false);
-            if (\is_string($deactivate)) {
-                $commands[] = $deactivate;
+            if (empty($commands)) {
+                $commands = $flush;
+            } else {
+                $commands = array_merge((\is_string($activate) ? [$activate] : []), ...array_values($commands));
+                $commands = array_merge($commands, $fulltext, $flush, (\is_string($deactivate) ? [$deactivate] : []));
             }
         }
         return $commands;

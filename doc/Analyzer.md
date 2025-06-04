@@ -212,13 +212,16 @@ The array will contain a key representing the schema with all respective tables 
 
 `maintainer_general` key will contain some general information about the run. Sub-keys `maintenance_start`, `maintenance_end`, `fulltext_settings_reset`, `flush` will indicate status of respective actions with same logic as actions for tables. `timings` key will contain timings as per `\Simbiat\Database\Query` class (uses `hrtime()`, nanoseconds) for all actions that are *not* UPDATE.
 
-## autoProcess
+## getCommands
 
 ```php
 (new \Simbiat\Database\Maintainer\Analyzer())->getCommands(string $schema, string|array $table = [], bool $integrate = false, bool $flat = false);
 ```
 
 In case you would prefer to run the commands manually or through some other automation process, you can use this method to generate a list of the respective commands. Passing `$integrate` as `true` will also include commands required to update `maintainer__tables`, so that future suggestions would account for the successful runs.
+
+> [!WARNING]  
+> Note that the result will include commands even for actions that are not set for auto-running.
 
 If `$flat` is `false` (default), the output will look like this:
 
@@ -243,7 +246,7 @@ array(1) {
 
 The array will have one key representing the schema and then individual subkey for each table, for which any actions were suggested. Each subkey will contain only commands suggested for that table. This may be useful if you want to generate commands for multiple schemas: you can then safely merge results from two method calls.
 
-If `$flat` is `true`, a regular (non-associative) array will be returned which will also include commands for maintenance mode, for FULLTEXT settings reset and FLUSH, if applicable:
+If `$flat` is `true`, a regular (non-associative) array will be returned which will also include commands for maintenance mode (if the list is not empty), for FULLTEXT settings reset (if the list is not empty) and FLUSH (if user has privileges):
 
 ```php
 array(7) {

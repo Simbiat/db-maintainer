@@ -7,7 +7,7 @@ use Simbiat\Database\Manage;
 use Simbiat\Database\Query;
 
 /**
- * Installer class for Maintainer library.
+ * Installer class for the Maintainer library.
  */
 class Installer
 {

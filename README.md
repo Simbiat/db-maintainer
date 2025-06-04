@@ -33,7 +33,7 @@ This library aims to cover all these points in as smart a manner as was possible
 (new \Simbiat\Database\Maintainer\Installer($dbh))->install();
 ```
 
-This will create a few tables in the database with a `maintainer__` prefix by default. If a different prefix is desired, check [customization documentation](doc/Settings.md). Further documentation will user `maintainer__` prefix, when referencing respective tables.
+This will create a few tables in the database with a `maintainer__` prefix by default. If a different prefix is desired, check [customization documentation](doc/Settings.md). Further documentation will use `maintainer__` prefix, when referencing respective tables.
 
 # Usage
 
