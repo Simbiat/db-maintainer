@@ -455,7 +455,7 @@ class Commander
         #InnoDB recreates table and then does ANALYZE, which does not include histograms by default
         if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$noSkip)) && preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
             #We also need to check that `analyze_histogram` is enabled for the table in settings
-            Query::query('SELECT `analyze_histogram` FROM `maintainer__tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
+            Query::query('SELECT `analyze_histogram` FROM `'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
         ) {
             $histogram = $this->histogram($schema, $table, $integrate, $run, $noSkip);
             if ($run) {
