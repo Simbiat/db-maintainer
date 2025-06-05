@@ -491,8 +491,10 @@ class Analyzer
             if (empty($commands)) {
                 $commands = $flush;
             } else {
-                $commands = array_merge((\is_string($activate) ? [$activate] : []), ...array_values($commands));
-                $commands = array_merge($commands, $fulltext, $flush, (\is_string($deactivate) ? [$deactivate] : []));
+                #Flatten the original list
+                $commands = array_merge(...array_values($commands[$schema]));
+                #Add other commands (if any)
+                $commands = array_merge((\is_string($activate) ? [$activate] : []), $commands, $fulltext, $flush, (\is_string($deactivate) ? [$deactivate] : []));
             }
         }
         return $commands;
@@ -537,7 +539,7 @@ class Analyzer
                                AND `INDEX_TYPE` LIKE \'%FULLTEXT%\'), TRUE, FALSE)                       AS `has_fulltext`,
                    IF(`CREATE_OPTIONS` REGEXP \'`?PAGE_COMPRESSED`?\\\\s*=\\\\s*\\\'?(ON|1)\\\'?\', TRUE, FALSE) AS `page_compressed`,
                    `TABLE_ROWS`,
-                   `UPDATE_TIME`,
+                   GREATEST(COALESCE(`CREATE_TIME`, 0), COALESCE(`UPDATE_TIME`, 0)) AS `UPDATED_AT`,
                    `DATA_LENGTH`,
                    `INDEX_LENGTH`,
                    `DATA_FREE`,
@@ -561,7 +563,7 @@ class Analyzer
         try {
             Query::query('UPDATE `'.$this->prefix.'tables`
                                 LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
-                                SET `'.$this->prefix.'tables`.`rows_current` = IF('.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`n_rows`, `'.$this->prefix.'tables`.`rows_current`),
+                                SET `'.$this->prefix.'tables`.`rows_current` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`n_rows`, `'.$this->prefix.'tables`.`rows_current`),
                                     `'.$this->prefix.'tables`.`update_time` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`last_update`, `'.$this->prefix.'tables`.`update_time`)
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema'.(empty($table) ? '' : ' AND `'.$this->prefix.'tables`.`table` IN (:table)').';',
                 [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
