@@ -255,11 +255,11 @@ array(7) {
   [1]=>
   string(53) "CHECK TABLE `simbiatr_simbiat`.`sys__files` EXTENDED;"
   [2]=>
-  string(201) "UPDATE `maintainer__tables` SET `check_date`=CURRENT_TIMESTAMP(), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`='simbiatr_simbiat' AND `table`='sys__files';"
+  string(201) "UPDATE `simbiatr_simbiat`.`maintainer__tables` SET `check_date`=CURRENT_TIMESTAMP(), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`='simbiatr_simbiat' AND `table`='sys__files';"
   [3]=>
   string(46) "ANALYZE TABLE `simbiatr_simbiat`.`sys__files`;"
   [4]=>
-  string(209) "UPDATE `maintainer__tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`='simbiatr_simbiat' AND `table`='sys__files';"
+  string(209) "UPDATE `simbiatr_simbiat`.`maintainer__tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`='simbiatr_simbiat' AND `table`='sys__files';"
   [5]=>
   string(84) "FLUSH LOCAL HOSTS, QUERY CACHE, TABLE_STATISTICS, INDEX_STATISTICS, USER_STATISTICS;"
   [6]=>

@@ -28,6 +28,12 @@ class Commander
     private array $features;
     
     /**
+     * Current database name
+     * @var string|null
+     */
+    private(set) string|null $currentDatabase = null;
+    
+    /**
      * Class constructor
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
@@ -35,6 +41,8 @@ class Commander
     public function __construct(\PDO|null $dbh = null, string $prefix = 'maintainer__')
     {
         $this->init($dbh, $prefix);
+        #Get the current database name to use with update queries
+        $this->currentDatabase = Query::query('SELECT DATABASE();', return: 'value');
         #Get settings
         $this->settings = $this->getSettings();
         #Get supported features
@@ -66,7 +74,7 @@ class Commander
             $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC;';
             if ($integrate) {
                 $commands[] = /** @lang SQL */
-                    'UPDATE `'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                    'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
         } elseif (strcasecmp($details['ENGINE'], 'InnoDB') === 0) {
             if (preg_match('/`?PAGE_COMPRESSED`?\s*=\s*\'?(ON|1)\'?/ui', $details['CREATE_OPTIONS']) === 1) {
@@ -76,7 +84,7 @@ class Commander
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC PAGE_COMPRESSED=1;';
                 if ($integrate) {
                     $commands[] = /** @lang SQL */
-                        'UPDATE `'.$this->prefix.'tables` SET `page_compressed`=1, `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                        'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `page_compressed`=1, `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } elseif ($this->features['file_per_table'] && ($this->settings['prefer_compressed'] || $preferCompressed)) {
                 if (strcasecmp($details['ROW_FORMAT'], 'COMPRESSED') === 1) {
@@ -85,13 +93,13 @@ class Commander
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=COMPRESSED;';
                 if ($integrate) {
                     $commands[] = /** @lang SQL */
-                        'UPDATE `'.$this->prefix.'tables` SET `row_format`=\'Compressed\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                        'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `row_format`=\'Compressed\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } elseif (preg_match('/^(Compressed|Dynamic)$/ui', $details['ROW_FORMAT']) !== 1) {
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC;';
                 if ($integrate) {
                     $commands[] = /** @lang SQL */
-                        'UPDATE `'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                        'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } else {
                 throw new \UnexpectedValueException('InnoDB table `'.$schema.'`.`'.$table.'` already uses `'.$details['ROW_FORMAT'].'` row format');
@@ -124,7 +132,7 @@ class Commander
         $commands = ['CHECK TABLE `'.$schema.'`.`'.$table.'` '.($this->settings['prefer_extended'] || $preferExtended ? 'EXTENDED' : 'MEDIUM').';'];
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables` SET `check_date`=CURRENT_TIMESTAMP(), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `check_date`=CURRENT_TIMESTAMP(), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -132,7 +140,7 @@ class Commander
                 #InnoDB does not support REPAIR
                 if (preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
                     #Set repair flag
-                    Query::query('UPDATE `'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
+                    Query::query('UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
                     if ($autoRepair) {
                         if ($this->repair($schema, $table, $integrate, $run, $preferExtended)) {
                             if ($integrate) {
@@ -175,7 +183,7 @@ class Commander
         $commands = ['REPAIR TABLE `'.$schema.'`.`'.$table.'`'.($this->settings['prefer_extended'] || $preferExtended ? ' EXTENDED' : '').';'];
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables` SET `repair_date`=CURRENT_TIMESTAMP(), `repair`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `repair_date`=CURRENT_TIMESTAMP(), `repair`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -210,7 +218,7 @@ class Commander
         $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'`;'];
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -310,7 +318,7 @@ class Commander
             array_merge(
                 $columns,
                 Query::query(
-                    'SELECT `column` AS `flag` FROM `'.$this->prefix.'columns_include` WHERE `schema` = :schema AND `table` = :table;',
+                    'SELECT `column` AS `flag` FROM `'.$this->currentDatabase.'`.`'.$this->prefix.'columns_include` WHERE `schema` = :schema AND `table` = :table;',
                     [':schema' => $schema, ':table' => $table],
                     return: 'column'
                 )
@@ -320,7 +328,7 @@ class Commander
         $columns = array_diff(
             $columns,
             Query::query(
-                'SELECT `column` AS `flag` FROM `'.$this->prefix.'columns_exclude` WHERE `schema` = :schema AND `table` = :table;',
+                'SELECT `column` AS `flag` FROM `'.$this->currentDatabase.'`.`'.$this->prefix.'columns_exclude` WHERE `schema` = :schema AND `table` = :table;',
                 [':schema' => $schema, ':table' => $table],
                 return: 'column'
             )
@@ -342,7 +350,7 @@ class Commander
         if ($integrate) {
             #We do *not* update the `analyze` flag, since regular ANALYZE may need to be run still
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -395,7 +403,7 @@ class Commander
         $settingFromLibrary = [];
         if ($this->features['histogram']) {
             #Get table settings for histograms, if available
-            $settingFromLibrary = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';', return: 'row');
+            $settingFromLibrary = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';', return: 'row');
         }
         if (empty($settingFromLibrary['analyze_histogram_buckets'])) {
             $settingFromLibrary['analyze_histogram_buckets'] = 100;
@@ -427,7 +435,7 @@ class Commander
         if ($integrate) {
             #Update statistics before optimization
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables`
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables`
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
                 SET `data_length_before`=`DATA_LENGTH`, `index_length_before`=`INDEX_LENGTH`, `data_free_before`=`DATA_FREE` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
@@ -440,13 +448,13 @@ class Commander
         }
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables`
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables`
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
                 SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             #OPTIMIZE also implies ANALYZE for InnoDB tables
             if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 $commands[] = /** @lang SQL */
-                    'UPDATE `'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                    'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
         }
         if ($run) {
@@ -455,7 +463,7 @@ class Commander
         #InnoDB recreates table and then does ANALYZE, which does not include histograms by default
         if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$noSkip)) && preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
             #We also need to check that `analyze_histogram` is enabled for the table in settings
-            Query::query('SELECT `analyze_histogram` FROM `'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
+            Query::query('SELECT `analyze_histogram` FROM `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
         ) {
             $histogram = $this->histogram($schema, $table, $integrate, $run, $noSkip);
             if ($run) {
@@ -584,7 +592,7 @@ class Commander
         }
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->currentDatabase.'`.`'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             if ($run) {
                 return Query::query($commands[array_key_last($commands)]);
             }
