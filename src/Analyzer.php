@@ -391,8 +391,8 @@ class Analyzer
         if ($this->features['set_global']) {
             try {
                 $results['maintainer_general']['fulltext_settings_reset'] = Query::query([
-                    /** @lang SQL */ 'SET @@GLOBAL.innodb_optimize_fulltext_only=0;',
-                    /** @lang SQL */ 'SET @@GLOBAL.innodb_ft_num_word_optimize=DEFAULT;'
+                    /** @lang SQL */ 'SET GLOBAL innodb_optimize_fulltext_only=0;',
+                    /** @lang SQL */ 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;'
                 ]);
             } catch (\Throwable $exception) {
                 $results['maintainer_general']['fulltext_settings_reset'] = $exception->getMessage();
@@ -470,9 +470,9 @@ class Analyzer
             $activate = $commander->maintenance();
             if ($this->features['set_global']) {
                 $fulltext = [/** @lang SQL */
-                    'SET @@`GLOBAL.innodb_optimize_fulltext_only`=0;',
+                    'SET GLOBAL innodb_optimize_fulltext_only=0;',
                     /** @lang SQL */
-                    'SET @@GLOBAL.innodb_ft_num_word_optimize=DEFAULT;'
+                    'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;'
                 ];
             } else {
                 $fulltext = [];

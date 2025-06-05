@@ -56,7 +56,7 @@ Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table to generate histograms, if s
 (new \Simbiat\Database\Maintainer\Commander())->optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $noSkip = false);
 ```
 
-Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria or Archive table. If table has FULLTEXT indexes and `set_global` feature is enabled, will additionally run `SET @@GLOBAL.innodb_optimize_fulltext_only=1;`, `SET @@GLOBAL.innodb_ft_num_word_optimize=10000`, trigger `OPTIMIZE` again to now update FULLTEXT indexes, and then reset the settings. Will not run FULLTEXT optimization if `innodb_optimize_fulltext_only` update fails. For InnoDB will also run ANALYZE for histograms, if supported and enabled for the table. Use `noSkip` set to `true` to force generation of histograms even if automated generation is already enabled (same as with `analyze()`).
+Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria or Archive table. If table has FULLTEXT indexes and `set_global` feature is enabled, will additionally run `SET GLOBAL innodb_optimize_fulltext_only=1;`, `SET GLOBAL innodb_ft_num_word_optimize=10000`, trigger `OPTIMIZE` again to now update FULLTEXT indexes, and then reset the settings. Will not run FULLTEXT optimization if `innodb_optimize_fulltext_only` update fails. For InnoDB will also run ANALYZE for histograms, if supported and enabled for the table. Use `noSkip` set to `true` to force generation of histograms even if automated generation is already enabled (same as with `analyze()`).
 
 ## fulltextRebuild
 

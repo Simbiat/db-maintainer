@@ -444,7 +444,7 @@ class Commander
         #If we have permissions to change FULLTEXT variables, and this is an InnoDB table with FULLTEXT indexes, optimize them as well
         $fulltext = $this->features['set_global'] && $details['has_fulltext'] && preg_match('/^InnoDB$/ui', $details['ENGINE']) === 1;
         if ($fulltext) {
-            array_push($commands, 'SET @@GLOBAL.innodb_optimize_fulltext_only=1;', 'SET @@GLOBAL.innodb_ft_num_word_optimize=10000;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET @@GLOBAL.innodb_optimize_fulltext_only=0;', 'SET @@GLOBAL.innodb_ft_num_word_optimize=DEFAULT;');
+            array_push($commands, 'SET GLOBAL innodb_optimize_fulltext_only=1;', 'SET GLOBAL innodb_ft_num_word_optimize=10000;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET GLOBAL innodb_optimize_fulltext_only=0;', 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;');
         }
         if ($integrate) {
             $commands[] = /** @lang SQL */
