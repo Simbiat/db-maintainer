@@ -13,26 +13,26 @@ All methods _including_ `maintenance` and `flush` have an argument `bool $run = 
 ## compress
 
 ```php
-(new \Simbiat\Database\Maintainer\Commander())->compress(string $schema, string $table, bool $integrate = false, bool $run = false, bool $preferCompressed = false);
+(new \Simbiat\Database\Maintainer\Commander())->compress(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_compressed = false);
 ```
 
-Compresses an InnoDB or MyISAM table. If page compression is supported (MariaDB 10.4+, InnoDB only), then it will be applied. If it's not supported, and `prefer_compressed` setting is enabled or `$preferCompressed` is passed as `true` (`false` by default), then a row format will be updated to `COMPRESSED` (InnoDB only). Otherwise, if we have an InnoDB or a MyISAM table, `DYNAMIC` row format will be applied. While `DYNAMIC` technically does not compress anything, using it _may_ reduce size of some tables, and it is generally recommended.
+Compresses an InnoDB or MyISAM table. If page compression is supported (MariaDB 10.4+, InnoDB only), then it will be applied. If it's not supported, and `prefer_compressed` setting is enabled or `$prefer_compressed` is passed as `true` (`false` by default), then a row format will be updated to `COMPRESSED` (InnoDB only). Otherwise, if we have an InnoDB or a MyISAM table, `DYNAMIC` row format will be applied. While `DYNAMIC` technically does not compress anything, using it _may_ reduce size of some tables, and it is generally recommended.
 
 ## check
 
 ```php
-(new \Simbiat\Database\Maintainer\Commander())->check(string $schema, string $table, bool $integrate = false, bool $run = false, bool $preferExtended = false, bool $autoRepair = false);
+(new \Simbiat\Database\Maintainer\Commander())->check(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false, bool $auto_repair = false);
 ```
 
-Runs a `CHECK` on a InnoDB, MyISAM, Aria, Archive or CSV table. If `prefer_extended` setting is enabled or `$preferExtended` is passed as `true` (`false` by default) `EXTENDED` option will be used. Otherwise, `MEDIUM` will be used, which will be faster. If `$autoRepair` is `true` will attempt to run `REPAIR`.
+Runs a `CHECK` on a InnoDB, MyISAM, Aria, Archive or CSV table. If `prefer_extended` setting is enabled or `$prefer_extended` is passed as `true` (`false` by default) `EXTENDED` option will be used. Otherwise, `MEDIUM` will be used, which will be faster. If `$auto_repair` is `true` will attempt to run `REPAIR`.
 
 ## repair
 
 ```php
-(new \Simbiat\Database\Maintainer\Commander())->repair(string $schema, string $table, bool $integrate = false, bool $run = false, bool $preferExtended = false);
+(new \Simbiat\Database\Maintainer\Commander())->repair(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false);
 ```
 
-Runs a `REPAIR` on a MyISAM, Aria, Archive or CSV table. If `prefer_extended` setting is enabled or `$preferExtended` is passed as `true` (`false` by default) `EXTENDED` option will be used.
+Runs a `REPAIR` on a MyISAM, Aria, Archive or CSV table. If `prefer_extended` setting is enabled or `$prefer_extended` is passed as `true` (`false` by default) `EXTENDED` option will be used.
 
 ## analyze
 
@@ -45,18 +45,18 @@ Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table.
 ## histogram
 
 ```php
-(new \Simbiat\Database\Maintainer\Commander())->histogram(string $schema, string $table, bool $integrate = false, bool $run = false, bool $noSkip = false);
+(new \Simbiat\Database\Maintainer\Commander())->histogram(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false);
 ```
 
-Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table to generate histograms, if supported (`UPDATE HISTOGRAM ON` for MySQL 8+ and `PERSISTENT FOR COLUMNS` for MariaDB 10.4+), and there are applicable columns available. Will not do anything if automated generation is already enabled globally for MariaDB (`use_stat_tables` is set to `complementary` or `preferably`). For MySQL 8.4+, will generate histograms only for columns that do not have automated generation enabled for them. If `$noSkip` is `true` will force generation of histograms even if automated generation is enabled.
+Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table to generate histograms, if supported (`UPDATE HISTOGRAM ON` for MySQL 8+ and `PERSISTENT FOR COLUMNS` for MariaDB 10.4+), and there are applicable columns available. Will not do anything if automated generation is already enabled globally for MariaDB (`use_stat_tables` is set to `complementary` or `preferably`). For MySQL 8.4+, will generate histograms only for columns that do not have automated generation enabled for them. If `$no_skip` is `true` will force generation of histograms even if automated generation is enabled.
 
 ## optimize
 
 ```php
-(new \Simbiat\Database\Maintainer\Commander())->optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $noSkip = false);
+(new \Simbiat\Database\Maintainer\Commander())->optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false);
 ```
 
-Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria or Archive table. If table has FULLTEXT indexes and `set_global` feature is enabled, will additionally run `SET GLOBAL innodb_optimize_fulltext_only=1;`, `SET GLOBAL innodb_ft_num_word_optimize=10000`, trigger `OPTIMIZE` again to now update FULLTEXT indexes, and then reset the settings. Will not run FULLTEXT optimization if `innodb_optimize_fulltext_only` update fails. For InnoDB will also run ANALYZE for histograms, if supported and enabled for the table. Use `noSkip` set to `true` to force generation of histograms even if automated generation is already enabled (same as with `analyze()`).
+Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria or Archive table. If table has FULLTEXT indexes and `set_global` feature is enabled, will additionally run `SET GLOBAL innodb_optimize_fulltext_only=1;`, `SET GLOBAL innodb_ft_num_word_optimize=10000`, trigger `OPTIMIZE` again to now update FULLTEXT indexes, and then reset the settings. Will not run FULLTEXT optimization if `innodb_optimize_fulltext_only` update fails. For InnoDB will also run ANALYZE for histograms, if supported and enabled for the table. Use `no_skip` set to `true` to force generation of histograms even if automated generation is already enabled (same as with `analyze()`).
 
 ## fulltextRebuild
 

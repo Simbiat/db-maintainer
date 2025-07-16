@@ -37,7 +37,7 @@ class Settings
     public function setSuggest(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'compress', 'optimize'])] string $action, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         if (in_array($action, ['analyze', 'check', 'compress', 'optimize'], true)) {
@@ -65,7 +65,7 @@ class Settings
     public function setRun(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'fulltext_rebuild', 'optimize'])] string $action, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         if (in_array($action, ['analyze', 'check', 'fulltext_rebuild', 'optimize'], true)) {
@@ -93,7 +93,7 @@ class Settings
     public function setDays(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'optimize'])] string $action, int $days): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         if (in_array($action, ['analyze', 'check', 'optimize'], true)) {
@@ -124,7 +124,7 @@ class Settings
     public function setTableFineTune(string $schema, string|array $table, #[ExpectedValues(['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'])] string $setting, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         if (in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], true)) {
@@ -159,7 +159,7 @@ class Settings
         if ($threshold > 100) {
             $threshold = 10.0;
         }
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_fragmentation`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
@@ -186,7 +186,7 @@ class Settings
         if ($threshold < 0) {
             $threshold = 0;
         }
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_rows_delta`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
@@ -217,7 +217,7 @@ class Settings
         if ($buckets > 1024) {
             $buckets = 1024;
         }
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         Query::query('UPDATE `'.$this->prefix.'tables` SET `analyze_histogram_buckets`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
@@ -298,7 +298,7 @@ class Settings
      */
     public function excludeColumn(string $schema, string $table, string|array $column, bool $delete = false): self
     {
-        if (\is_string($column)) {
+        if (is_string($column)) {
             $column = [$column];
         }
         foreach ([$schema, $table, $column] as $argument) {
@@ -326,7 +326,7 @@ class Settings
      */
     public function includeColumn(string $schema, string $table, string|array $column, bool $delete = false): self
     {
-        if (\is_string($column)) {
+        if (is_string($column)) {
             $column = [$column];
         }
         foreach ([$schema, $table, $column] as $argument) {

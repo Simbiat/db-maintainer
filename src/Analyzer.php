@@ -49,7 +49,7 @@ class Analyzer
     public function suggest(string $schema, string|array $table = []): array
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
+        if (is_string($table)) {
             $table = [$table];
         }
         #Update tables' data
@@ -292,7 +292,7 @@ class Analyzer
         #Ensure booleans are used in results
         foreach ($results as &$result) {
             foreach ($result as $column => &$value) {
-                if (!\in_array($column, ['schema', 'table'], true)) {
+                if (!in_array($column, ['schema', 'table'], true)) {
                     $value = (bool)$value;
                 }
             }
@@ -322,69 +322,69 @@ class Analyzer
         #Not catching exception on enabling maintenance mode: if it fails, we need to stop doing anything else
         $results['maintainer_general']['maintenance_start'] = $commander->maintenance(false, true);
         #Process tables one by one if an action is both suggested for the table and auto-running of it is enabled
-        foreach ($tables as $tableActions) {
-            if ($tableActions['repair'] && $this->settings['repair_auto_run']) {
+        foreach ($tables as $table_actions) {
+            if ($table_actions['repair'] && $this->settings['repair_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['repair'] = $commander->repair($tableActions['schema'], $tableActions['table'], true, true);
+                    $results[$schema][$table_actions['table']]['repair'] = $commander->repair($table_actions['schema'], $table_actions['table'], true, true);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['repair'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['repair'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['repair'] = false;
+                $results[$schema][$table_actions['table']]['repair'] = false;
             }
-            if ($tableActions['check'] && $tableActions['check_auto_run']) {
+            if ($table_actions['check'] && $table_actions['check_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['check'] = $commander->check($tableActions['schema'], $tableActions['table'], true, true, autoRepair: $this->settings['repair_auto_run']);
+                    $results[$schema][$table_actions['table']]['check'] = $commander->check($table_actions['schema'], $table_actions['table'], true, true, auto_repair: $this->settings['repair_auto_run']);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['check'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['check'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['check'] = false;
+                $results[$schema][$table_actions['table']]['check'] = false;
             }
-            if ($tableActions['compress'] && $this->settings['compress_auto_run']) {
+            if ($table_actions['compress'] && $this->settings['compress_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['compress'] = $commander->compress($tableActions['schema'], $tableActions['table'], true, true);
+                    $results[$schema][$table_actions['table']]['compress'] = $commander->compress($table_actions['schema'], $table_actions['table'], true, true);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['compress'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['compress'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['compress'] = false;
+                $results[$schema][$table_actions['table']]['compress'] = false;
             }
-            if ($tableActions['optimize'] && $tableActions['optimize_auto_run']) {
+            if ($table_actions['optimize'] && $table_actions['optimize_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['optimize'] = $commander->optimize($tableActions['schema'], $tableActions['table'], true, true);
+                    $results[$schema][$table_actions['table']]['optimize'] = $commander->optimize($table_actions['schema'], $table_actions['table'], true, true);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['optimize'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['optimize'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['optimize'] = false;
+                $results[$schema][$table_actions['table']]['optimize'] = false;
             }
-            if ($tableActions['analyze'] && $tableActions['analyze_histogram'] && $tableActions['analyze_auto_run']) {
+            if ($table_actions['analyze'] && $table_actions['analyze_histogram'] && $table_actions['analyze_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['analyze_histogram'] = $commander->histogram($tableActions['schema'], $tableActions['table'], true, true);
+                    $results[$schema][$table_actions['table']]['analyze_histogram'] = $commander->histogram($table_actions['schema'], $table_actions['table'], true, true);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['analyze_histogram'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['analyze_histogram'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['analyze_histogram'] = false;
+                $results[$schema][$table_actions['table']]['analyze_histogram'] = false;
             }
-            if ($tableActions['analyze'] && $tableActions['analyze_auto_run']) {
+            if ($table_actions['analyze'] && $table_actions['analyze_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['analyze'] = $commander->analyze($tableActions['schema'], $tableActions['table'], true, true);
+                    $results[$schema][$table_actions['table']]['analyze'] = $commander->analyze($table_actions['schema'], $table_actions['table'], true, true);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['analyze'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['analyze'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['analyze'] = false;
+                $results[$schema][$table_actions['table']]['analyze'] = false;
             }
-            if ($tableActions['fulltext_rebuild'] && $tableActions['fulltext_rebuild_auto_run']) {
+            if ($table_actions['fulltext_rebuild'] && $table_actions['fulltext_rebuild_auto_run']) {
                 try {
-                    $results[$schema][$tableActions['table']]['fulltext_rebuild'] = $commander->fulltextRebuild($tableActions['schema'], $tableActions['table'], true, true);
+                    $results[$schema][$table_actions['table']]['fulltext_rebuild'] = $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], true, true);
                 } catch (\Throwable $exception) {
-                    $results[$schema][$tableActions['table']]['fulltext_rebuild'] = $exception->getMessage();
+                    $results[$schema][$table_actions['table']]['fulltext_rebuild'] = $exception->getMessage();
                 }
             } else {
-                $results[$schema][$tableActions['table']]['fulltext_rebuild'] = false;
+                $results[$schema][$table_actions['table']]['fulltext_rebuild'] = false;
             }
         }
         #Reset innodb_optimize_fulltext_only to 0, in case we failed during FULLTEXT optimization.
@@ -442,28 +442,28 @@ class Analyzer
         $this->schemaTableChecker($schema, $table);
         $commander = new Commander($this->dbh, $this->prefix);
         $commands = [];
-        foreach ($this->suggest($schema, $table) as $tableActions) {
-            $commands[$tableActions['schema']][$tableActions['table']] = [];
-            if ($tableActions['repair']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->repair($tableActions['schema'], $tableActions['table'], $integrate));
+        foreach ($this->suggest($schema, $table) as $table_actions) {
+            $commands[$table_actions['schema']][$table_actions['table']] = [];
+            if ($table_actions['repair']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->repair($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($tableActions['check']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->check($tableActions['schema'], $tableActions['table'], $integrate));
+            if ($table_actions['check']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->check($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($tableActions['compress']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->compress($tableActions['schema'], $tableActions['table'], $integrate));
+            if ($table_actions['compress']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->compress($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($tableActions['optimize']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->optimize($tableActions['schema'], $tableActions['table'], $integrate));
+            if ($table_actions['optimize']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->optimize($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($tableActions['analyze'] && $tableActions['analyze_histogram']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->histogram($tableActions['schema'], $tableActions['table'], $integrate));
+            if ($table_actions['analyze'] && $table_actions['analyze_histogram']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->histogram($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($tableActions['analyze']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->analyze($tableActions['schema'], $tableActions['table'], $integrate));
+            if ($table_actions['analyze']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->analyze($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($tableActions['fulltext_rebuild']) {
-                $commands[$tableActions['schema']][$tableActions['table']] = array_merge($commands[$tableActions['schema']][$tableActions['table']], $commander->fulltextRebuild($tableActions['schema'], $tableActions['table'], $integrate));
+            if ($table_actions['fulltext_rebuild']) {
+                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], $integrate));
             }
         }
         if ($flat) {
@@ -479,7 +479,7 @@ class Analyzer
             }
             if ($this->settings['use_flush']) {
                 $flush = $commander->flush();
-                if (\is_string($flush)) {
+                if (is_string($flush)) {
                     $flush = [$flush];
                 } else {
                     $flush = [];
@@ -494,7 +494,7 @@ class Analyzer
                 #Flatten the original list
                 $commands = array_merge(...array_values($commands[$schema]));
                 #Add other commands (if any)
-                $commands = array_merge((\is_string($activate) ? [$activate] : []), $commands, $fulltext, $flush, (\is_string($deactivate) ? [$deactivate] : []));
+                $commands = array_merge((is_string($activate) ? [$activate] : []), $commands, $fulltext, $flush, (is_string($deactivate) ? [$deactivate] : []));
             }
         }
         return $commands;
@@ -512,11 +512,11 @@ class Analyzer
     {
         $this->schemaTableChecker($schema, $table);
         #We need to check that the `TEMPORARY` column is available in the `TABLES` table because there are cases when it's not available (MySQL or older version of MariaDB)
-        $tempTableCheck = Query::query('SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = \'information_schema\' AND `TABLE_NAME` = \'TABLES\' AND `COLUMN_NAME` = \'TEMPORARY\';', return: 'all');
-        if (!empty($tempTableCheck)) {
-            $tempTableCheck = true;
+        $temp_table_check = Query::query('SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = \'information_schema\' AND `TABLE_NAME` = \'TABLES\' AND `COLUMN_NAME` = \'TEMPORARY\';', return: 'all');
+        if (!empty($temp_table_check)) {
+            $temp_table_check = true;
         } else {
-            $tempTableCheck = false;
+            $temp_table_check = false;
         }
         #Delete non-existent old tables
         Query::query([
@@ -545,7 +545,7 @@ class Analyzer
                    `DATA_FREE`,
                    `CHECK_TIME`
             FROM `information_schema`.`TABLES`
-            WHERE `TABLE_SCHEMA` = :schema'.(empty($table) ? '' : ' AND `TABLE_NAME` IN (:table)').' AND `TABLE_TYPE`=\'BASE TABLE\''.($tempTableCheck ? 'AND `TEMPORARY`!=\'Y\'' : '').'
+            WHERE `TABLE_SCHEMA` = :schema'.(empty($table) ? '' : ' AND `TABLE_NAME` IN (:table)').' AND `TABLE_TYPE`=\'BASE TABLE\''.($temp_table_check ? 'AND `TEMPORARY`!=\'Y\'' : '').'
             ON DUPLICATE KEY UPDATE `analyzed`=CURRENT_TIMESTAMP(),
                                     `engine`=values(`engine`),
                                     `row_format`=values(`row_format`),

@@ -63,7 +63,7 @@ trait TraitForMaintainer
             throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
         }
         if (!empty($table)) {
-            if (\is_string($table)) {
+            if (is_string($table)) {
                 $table = [$table];
             }
             foreach ($table as $table_name) {
@@ -116,7 +116,7 @@ trait TraitForMaintainer
         }
         $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
         #If the value is `never`, it means MariaDB does not use persistent statistics at all.
-        if (\is_string($analyze_persistent) && strcasecmp($analyze_persistent, 'never') !== 0) {
+        if (is_string($analyze_persistent) && strcasecmp($analyze_persistent, 'never') !== 0) {
             $features['analyze_persistent'] = true;
             #If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
             if (strcasecmp($analyze_persistent, 'complementary') === 0 || strcasecmp($analyze_persistent, 'preferably') === 0) {
