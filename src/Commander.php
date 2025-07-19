@@ -63,12 +63,12 @@ class Commander
     public function compress(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_compressed = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (preg_match('/^(InnoDB|MyISAM)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support compression');
         }
         $commands = [];
-        if (strcasecmp($details['ENGINE'], 'MyISAM') === 0) {
-            if (strcasecmp($details['ROW_FORMAT'], 'Dynamic') === 0) {
+        if (\strcasecmp($details['ENGINE'], 'MyISAM') === 0) {
+            if (\strcasecmp($details['ROW_FORMAT'], 'Dynamic') === 0) {
                 throw new \UnexpectedValueException('MyISAM table `'.$schema.'`.`'.$table.'` already uses `Dynamic` row format');
             }
             $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC;';
@@ -76,8 +76,8 @@ class Commander
                 $commands[] = /** @lang SQL */
                     'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
-        } elseif (strcasecmp($details['ENGINE'], 'InnoDB') === 0) {
-            if (preg_match('/`?PAGE_COMPRESSED`?\s*=\s*\'?(ON|1)\'?/ui', $details['CREATE_OPTIONS']) === 1) {
+        } elseif (\strcasecmp($details['ENGINE'], 'InnoDB') === 0) {
+            if (\preg_match('/`?PAGE_COMPRESSED`?\s*=\s*\'?(ON|1)\'?/ui', $details['CREATE_OPTIONS']) === 1) {
                 throw new \UnexpectedValueException('InnoDB table `'.$schema.'`.`'.$table.'` already uses page compression');
             }
             if ($this->features['page_compression']) {
@@ -87,7 +87,7 @@ class Commander
                         'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `page_compressed`=1, `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } elseif ($this->features['file_per_table'] && ($this->settings['prefer_compressed'] || $prefer_compressed)) {
-                if (strcasecmp($details['ROW_FORMAT'], 'COMPRESSED') === 1) {
+                if (\strcasecmp($details['ROW_FORMAT'], 'COMPRESSED') === 1) {
                     throw new \UnexpectedValueException('InnoDB table `'.$schema.'`.`'.$table.'` already uses `Compressed` row format');
                 }
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=COMPRESSED;';
@@ -95,7 +95,7 @@ class Commander
                     $commands[] = /** @lang SQL */
                         'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `row_format`=\'Compressed\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
-            } elseif (preg_match('/^(Compressed|Dynamic)$/ui', $details['ROW_FORMAT']) !== 1) {
+            } elseif (\preg_match('/^(Compressed|Dynamic)$/ui', $details['ROW_FORMAT']) !== 1) {
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC;';
                 if ($integrate) {
                     $commands[] = /** @lang SQL */
@@ -126,7 +126,7 @@ class Commander
     public function check(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false, bool $auto_repair = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (preg_match('/^(InnoDB|MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support CHECK');
         }
         $commands = ['CHECK TABLE `'.$schema.'`.`'.$table.'` '.($this->settings['prefer_extended'] || $prefer_extended ? 'EXTENDED' : 'MEDIUM').';'];
@@ -138,7 +138,7 @@ class Commander
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
             if (is_string($result)) {
                 #InnoDB does not support REPAIR
-                if (preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
+                if (\preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
                     #Set repair flag
                     Query::query('UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
                     if ($auto_repair) {
@@ -177,7 +177,7 @@ class Commander
     public function repair(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support REPAIR');
         }
         $commands = ['REPAIR TABLE `'.$schema.'`.`'.$table.'`'.($this->settings['prefer_extended'] || $prefer_extended ? ' EXTENDED' : '').';'];
@@ -212,7 +212,7 @@ class Commander
     public function analyze(string $schema, string $table, bool $integrate = false, bool $run = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (preg_match('/^(InnoDB|MyISAM|Aria)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support ANALYZE');
         }
         $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'`;'];
@@ -248,7 +248,7 @@ class Commander
     public function histogram(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (preg_match('/^(InnoDB|MyISAM|Aria)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support ANALYZE');
         }
         #Don't do anything if neither histograms nor persistent statistics are supported or if persistent statistics are supported, but already covered by regular ANALYZE (unless we enforce them)
@@ -314,8 +314,8 @@ class Commander
             [':schema' => $schema, ':table' => $table],
             return: 'column');
         #Merge with columns that are explicitly included. Need to do this in a separate query, because otherwise table's schema needs to be provided, and that would require getting is somehow, that would complicate things even more
-        $columns = array_unique(
-            array_merge(
+        $columns = \array_unique(
+            \array_merge(
                 $columns,
                 Query::query(
                     'SELECT `column` AS `flag` FROM `'.$this->current_database.'`.`'.$this->prefix.'columns_include` WHERE `schema` = :schema AND `table` = :table;',
@@ -325,7 +325,7 @@ class Commander
             )
         );
         #Remove explicitly excluded columns as well. Doing this as a separate query for the same reason as including columns
-        $columns = array_diff(
+        $columns = \array_diff(
             $columns,
             Query::query(
                 'SELECT `column` AS `flag` FROM `'.$this->current_database.'`.`'.$this->prefix.'columns_exclude` WHERE `schema` = :schema AND `table` = :table;',
@@ -342,7 +342,7 @@ class Commander
         }
         #Validate all column names
         foreach ($columns as $column) {
-            if (preg_match('/^[\w\-]{1,64}$/u', $column) !== 1) {
+            if (\preg_match('/^[\w\-]{1,64}$/u', $column) !== 1) {
                 throw new \UnexpectedValueException('Invalid table name `'.$column.'`;');
             }
         }
@@ -381,13 +381,13 @@ class Commander
         if ($this->features['histogram']) {
             #MySQL format
             if ($this->features['auto_histogram']) {
-                $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS '.($settings_from_library['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;';
+                $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.\implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS '.($settings_from_library['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;';
             } else {
-                $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS;';
+                $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.\implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS;';
             }
         } else {
             #MariaDB format
-            $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.implode('`, `', $columns).'`) INDEXES ();';
+            $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.\implode('`, `', $columns).'`) INDEXES ();';
         }
         return $command;
     }
@@ -429,7 +429,7 @@ class Commander
     public function optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (preg_match('/^(InnoDB|MyISAM|Aria|Archive)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
         }
         $commands = [];
@@ -443,9 +443,9 @@ class Commander
         $commands[] = /** @lang SQL */
             'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;';
         #If we have permissions to change FULLTEXT variables, and this is an InnoDB table with FULLTEXT indexes, optimize them as well
-        $fulltext = $this->features['set_global'] && $details['has_fulltext'] && preg_match('/^InnoDB$/ui', $details['ENGINE']) === 1;
+        $fulltext = $this->features['set_global'] && $details['has_fulltext'] && \preg_match('/^InnoDB$/ui', $details['ENGINE']) === 1;
         if ($fulltext) {
-            array_push($commands, 'SET GLOBAL innodb_optimize_fulltext_only=1;', 'SET GLOBAL innodb_ft_num_word_optimize=10000;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET GLOBAL innodb_optimize_fulltext_only=0;', 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;');
+            \array_push($commands, 'SET GLOBAL innodb_optimize_fulltext_only=1;', 'SET GLOBAL innodb_ft_num_word_optimize=10000;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET GLOBAL innodb_optimize_fulltext_only=0;', 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;');
         }
         if ($integrate) {
             $commands[] = /** @lang SQL */
@@ -453,7 +453,7 @@ class Commander
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
                 SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             #OPTIMIZE also implies ANALYZE for InnoDB tables
-            if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
+            if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 $commands[] = /** @lang SQL */
                     'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
@@ -462,7 +462,7 @@ class Commander
             $this->runOptimize($schema, $table, $integrate, $fulltext, $details, $commands);
         }
         #InnoDB recreates table and then does ANALYZE, which does not include histograms by default
-        if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$no_skip)) && preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
+        if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$no_skip)) && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
             #We also need to check that `analyze_histogram` is enabled for the table in settings
             Query::query('SELECT `analyze_histogram` FROM `'.$this->current_database.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
         ) {
@@ -470,7 +470,7 @@ class Commander
             if ($run) {
                 return $histogram;
             }
-            $commands = array_merge($commands, $histogram);
+            $commands = \array_merge($commands, $histogram);
         } elseif ($run) {
             return true;
         }
@@ -504,7 +504,7 @@ class Commander
         if ($integrate) {
             #Need to wrap the UPDATE in array due to how `Query` works
             Query::query([$commands[$fulltext ? 7 : 2]]);
-            if (preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
+            if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 #Need to wrap the UPDATE in array due to how `Query` works
                 Query::query([$commands[$fulltext ? 8 : 3]]);
             }
@@ -583,7 +583,7 @@ class Commander
     {
         $details = $this->getTableDetails($schema, $table);
         $commands = [];
-        if (preg_match('/^(InnoDB|MyISAM|Aria|Mroonga)$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Mroonga)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
         }
         #Get FULLTEXT indexes names
@@ -595,7 +595,7 @@ class Commander
             $commands[] = /** @lang SQL */
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             if ($run) {
-                return Query::query($commands[array_key_last($commands)]);
+                return Query::query($commands[\array_key_last($commands)]);
             }
         }
         return $commands;
@@ -615,7 +615,7 @@ class Commander
             return false;
         }
         foreach ([$this->settings['maintenance_schema_name'], $this->settings['maintenance_table_name'], $this->settings['maintenance_setting_column'], $this->settings['maintenance_setting_name'], $this->settings['maintenance_value_column']] as $argument) {
-            if (preg_match('/^[\w\-]{1,64}$/u', $argument) !== 1) {
+            if (\preg_match('/^[\w\-]{1,64}$/u', $argument) !== 1) {
                 throw new \UnexpectedValueException('Invalid maintenance parameter detected');
             }
         }
@@ -639,7 +639,7 @@ class Commander
     private function checkResults(array $result): bool|string
     {
         foreach ($result as $row) {
-            if (preg_match('/^(OK|Table is already up to date|Table does not support optimize, doing recreate \+ analyze instead|Engine-independent statistics collected|Histogram statistics created.*)$/ui', $row['Msg_text']) !== 1) {
+            if (\preg_match('/^(OK|Table is already up to date|Table does not support optimize, doing recreate \+ analyze instead|Engine-independent statistics collected|Histogram statistics created.*)$/ui', $row['Msg_text']) !== 1) {
                 return $row['Msg_text'];
             }
         }

@@ -22,7 +22,7 @@ trait TraitForMaintainer
      */
     private(set) string $prefix = 'maintainer__' {
         set {
-            if (preg_match('/^[\w\-]{0,49}$/u', $value) === 1) {
+            if (\preg_match('/^[\w\-]{0,49}$/u', $value) === 1) {
                 $this->prefix = $value;
             } else {
                 throw new \UnexpectedValueException('Invalid database prefix');
@@ -56,18 +56,18 @@ trait TraitForMaintainer
      */
     private function schemaTableChecker(string $schema, string|array $table = []): void
     {
-        if (preg_match('/^[\w\-]{1,64}$/u', $schema) !== 1) {
+        if (\preg_match('/^[\w\-]{1,64}$/u', $schema) !== 1) {
             throw new \UnexpectedValueException('Invalid database schema `'.$schema.'`');
         }
-        if (preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
+        if (\preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
             throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
         }
         if (!empty($table)) {
-            if (is_string($table)) {
+            if (\is_string($table)) {
                 $table = [$table];
             }
             foreach ($table as $table_name) {
-                if (preg_match('/^[\w\-]{1,64}$/u', $table_name) !== 1) {
+                if (\preg_match('/^[\w\-]{1,64}$/u', $table_name) !== 1) {
                     throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
                 }
             }
@@ -116,10 +116,10 @@ trait TraitForMaintainer
         }
         $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
         #If the value is `never`, it means MariaDB does not use persistent statistics at all.
-        if (is_string($analyze_persistent) && strcasecmp($analyze_persistent, 'never') !== 0) {
+        if (\is_string($analyze_persistent) && \strcasecmp($analyze_persistent, 'never') !== 0) {
             $features['analyze_persistent'] = true;
             #If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
-            if (strcasecmp($analyze_persistent, 'complementary') === 0 || strcasecmp($analyze_persistent, 'preferably') === 0) {
+            if (\strcasecmp($analyze_persistent, 'complementary') === 0 || \strcasecmp($analyze_persistent, 'preferably') === 0) {
                 $features['skip_persistent'] = true;
             } else {
                 $features['skip_persistent'] = false;
@@ -129,9 +129,9 @@ trait TraitForMaintainer
             $features['skip_persistent'] = true;
         }
         #Check if histograms are supported. MySQL 8+.
-        if (!$features['mariadb'] && version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
+        if (!$features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
             $features['histogram'] = true;
-            if (version_compare(mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
+            if (\version_compare(mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
                 $features['auto_histogram'] = true;
             } else {
                 $features['auto_histogram'] = false;
@@ -142,13 +142,13 @@ trait TraitForMaintainer
         }
         #Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
         $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
-        if (strcasecmp($innodb_file_per_table, 'ON') === 0) {
+        if (\strcasecmp($innodb_file_per_table, 'ON') === 0) {
             $features['file_per_table'] = true;
         } else {
             $features['file_per_table'] = false;
         }
         #Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        if ($features['mariadb'] && version_compare(mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
+        if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
             $features['page_compression'] = true;
         } else {
             $features['page_compression'] = false;
@@ -165,7 +165,7 @@ trait TraitForMaintainer
         } else {
             $features['can_flush'] = false;
         }
-        if (!$features['mariadb'] && version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
+        if (!$features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
             #We have MySQL 8 or newer
             if ($features['can_flush']) {
                 $features['can_flush_optimizer'] = true;

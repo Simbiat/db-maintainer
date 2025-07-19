@@ -49,7 +49,7 @@ class Analyzer
     public function suggest(string $schema, string|array $table = []): array
     {
         $this->schemaTableChecker($schema, $table);
-        if (is_string($table)) {
+        if (\is_string($table)) {
             $table = [$table];
         }
         #Update tables' data
@@ -292,7 +292,7 @@ class Analyzer
         #Ensure booleans are used in results
         foreach ($results as &$result) {
             foreach ($result as $column => &$value) {
-                if (!in_array($column, ['schema', 'table'], true)) {
+                if (!\in_array($column, ['schema', 'table'], true)) {
                     $value = (bool)$value;
                 }
             }
@@ -420,7 +420,7 @@ class Analyzer
         $results['maintainer_general']['timings'] = Query::$timings;
         #Remove all unrelated queries
         foreach ($results['maintainer_general']['timings'] as $key => $timing) {
-            if (preg_match('/^(OPTIMIZE|CHECK|ANALYZE|REPAIR|ALTER|FLUSH)/ui', $timing['query']) !== 1) {
+            if (\preg_match('/^(OPTIMIZE|CHECK|ANALYZE|REPAIR|ALTER|FLUSH)/ui', $timing['query']) !== 1) {
                 unset($results['maintainer_general']['timings'][$key]);
             }
         }
@@ -445,25 +445,25 @@ class Analyzer
         foreach ($this->suggest($schema, $table) as $table_actions) {
             $commands[$table_actions['schema']][$table_actions['table']] = [];
             if ($table_actions['repair']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->repair($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->repair($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['check']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->check($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->check($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['compress']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->compress($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->compress($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['optimize']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->optimize($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->optimize($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['analyze'] && $table_actions['analyze_histogram']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->histogram($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->histogram($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['analyze']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->analyze($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->analyze($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['fulltext_rebuild']) {
-                $commands[$table_actions['schema']][$table_actions['table']] = array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], $integrate));
+                $commands[$table_actions['schema']][$table_actions['table']] = \array_merge($commands[$table_actions['schema']][$table_actions['table']], $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], $integrate));
             }
         }
         if ($flat) {
@@ -479,7 +479,7 @@ class Analyzer
             }
             if ($this->settings['use_flush']) {
                 $flush = $commander->flush();
-                if (is_string($flush)) {
+                if (\is_string($flush)) {
                     $flush = [$flush];
                 } else {
                     $flush = [];
@@ -492,9 +492,9 @@ class Analyzer
                 $commands = $flush;
             } else {
                 #Flatten the original list
-                $commands = array_merge(...array_values($commands[$schema]));
+                $commands = \array_merge(...\array_values($commands[$schema]));
                 #Add other commands (if any)
-                $commands = array_merge((is_string($activate) ? [$activate] : []), $commands, $fulltext, $flush, (is_string($deactivate) ? [$deactivate] : []));
+                $commands = \array_merge((\is_string($activate) ? [$activate] : []), $commands, $fulltext, $flush, (\is_string($deactivate) ? [$deactivate] : []));
             }
         }
         return $commands;
