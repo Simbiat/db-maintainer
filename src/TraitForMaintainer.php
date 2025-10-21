@@ -12,15 +12,20 @@ trait TraitForMaintainer
 {
     /**
      * PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     *
      * @var \PDO|null
      */
     private(set) \PDO|null $dbh = null;
     
     /**
      * PDO Cron database prefix. Only Latin characters, underscores, dashes and numbers are allowed. Maximum 53 symbols.
+     *
      * @var string
      */
     private(set) string $prefix = 'maintainer__' {
+        /**
+         * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81990
+         */
         set {
             if (\preg_match('/^[\w\-]{0,49}$/u', $value) === 1) {
                 $this->prefix = $value;
