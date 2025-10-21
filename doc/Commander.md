@@ -24,7 +24,7 @@ Compresses an InnoDB or MyISAM table. If page compression is supported (MariaDB 
 (new \Simbiat\Database\Maintainer\Commander())->check(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false, bool $auto_repair = false);
 ```
 
-Runs a `CHECK` on a InnoDB, MyISAM, Aria, Archive or CSV table. If `prefer_extended` setting is enabled or `$prefer_extended` is passed as `true` (`false` by default) `EXTENDED` option will be used. Otherwise, `MEDIUM` will be used, which will be faster. If `$auto_repair` is `true` will attempt to run `REPAIR`.
+Runs a `CHECK` on a InnoDB, MyISAM, Aria, Archive or CSV table (Sequence for MariaDB 12+). If `prefer_extended` setting is enabled or `$prefer_extended` is passed as `true` (`false` by default) `EXTENDED` option will be used. Otherwise, `MEDIUM` will be used, which will be faster. If `$auto_repair` is `true` will attempt to run `REPAIR`.
 
 ## repair
 

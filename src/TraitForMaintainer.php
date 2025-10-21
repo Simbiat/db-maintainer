@@ -182,6 +182,12 @@ trait TraitForMaintainer
         } else {
             $features['can_flush_optimizer'] = false;
         }
+        #SEQUENCE engine support CHECK in MariaDB since version 12
+        if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')) {
+            $features['sequence_check'] = true;
+        } else {
+            $features['sequence_check'] = false;
+        }
         return $features;
     }
 }
