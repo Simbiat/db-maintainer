@@ -274,7 +274,7 @@ class Analyzer
         $fulltext_rebuild[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:innodb_fulltext WHERE `setting`=\'innodb_fulltext\';', [':innodb_fulltext' => $this->settings['innodb_fulltext_current']]];
         $fulltext_rebuild[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:myisam_fulltext WHERE `setting`=\'myisam_fulltext\';', [':myisam_fulltext' => $this->settings['myisam_fulltext_current']]];
         #Run the queries for FULLTEXT rebuild suggestions
-        Query::query($fulltext_rebuild);
+        Query::query($fulltext_rebuild, [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
         #If no table was provided, update date for all tables that have no action suggested
         if (empty($table)) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `analyzed`=CURRENT_TIMESTAMP() WHERE `schema`=:schema AND
