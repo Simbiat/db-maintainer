@@ -132,7 +132,7 @@ class Commander
         $commands = ['CHECK TABLE `'.$schema.'`.`'.$table.'` '.($this->settings['prefer_extended'] || $prefer_extended ? 'EXTENDED' : 'MEDIUM').';'];
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `check_date`=CURRENT_TIMESTAMP(), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `check_date`=CURRENT_TIMESTAMP(6), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -183,7 +183,7 @@ class Commander
         $commands = ['REPAIR TABLE `'.$schema.'`.`'.$table.'`'.($this->settings['prefer_extended'] || $prefer_extended ? ' EXTENDED' : '').';'];
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `repair_date`=CURRENT_TIMESTAMP(), `repair`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `repair_date`=CURRENT_TIMESTAMP(6), `repair`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -218,7 +218,7 @@ class Commander
         $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'`;'];
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -350,7 +350,7 @@ class Commander
         if ($integrate) {
             #We do *not* update the `analyze` flag, since regular ANALYZE may need to be run still
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
@@ -451,11 +451,11 @@ class Commander
             $commands[] = /** @lang SQL */
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
-                SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(6), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             #OPTIMIZE also implies ANALYZE for InnoDB tables
             if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 $commands[] = /** @lang SQL */
-                    'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                    'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
         }
         if ($run) {
@@ -593,7 +593,7 @@ class Commander
         }
         if ($integrate) {
             $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(6), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             if ($run) {
                 return Query::query($commands[\array_key_last($commands)]);
             }
