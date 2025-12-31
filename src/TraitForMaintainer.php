@@ -24,7 +24,7 @@ trait TraitForMaintainer
      */
     private(set) string $prefix = 'maintainer__' {
         /**
-         * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81990
+         * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81560
          */
         set {
             if (\preg_match('/^[\w\-]{0,49}$/u', $value) === 1) {
