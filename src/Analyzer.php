@@ -327,69 +327,7 @@ class Analyzer
         $results['maintainer_general']['maintenance_start'] = $commander->maintenance(false, true);
         #Process tables one by one if an action is both suggested for the table and auto-running of it is enabled
         foreach ($tables as $table_actions) {
-            if ($table_actions['repair'] && $this->settings['repair_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['repair'] = $commander->repair($table_actions['schema'], $table_actions['table'], true, true);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['repair'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['repair'] = false;
-            }
-            if ($table_actions['check'] && $table_actions['check_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['check'] = $commander->check($table_actions['schema'], $table_actions['table'], true, true, auto_repair: $this->settings['repair_auto_run']);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['check'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['check'] = false;
-            }
-            if ($table_actions['compress'] && $this->settings['compress_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['compress'] = $commander->compress($table_actions['schema'], $table_actions['table'], true, true);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['compress'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['compress'] = false;
-            }
-            if ($table_actions['optimize'] && $table_actions['optimize_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['optimize'] = $commander->optimize($table_actions['schema'], $table_actions['table'], true, true);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['optimize'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['optimize'] = false;
-            }
-            if ($table_actions['analyze'] && $table_actions['analyze_histogram'] && $table_actions['analyze_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['analyze_histogram'] = $commander->histogram($table_actions['schema'], $table_actions['table'], true, true);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['analyze_histogram'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['analyze_histogram'] = false;
-            }
-            if ($table_actions['analyze'] && $table_actions['analyze_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['analyze'] = $commander->analyze($table_actions['schema'], $table_actions['table'], true, true);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['analyze'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['analyze'] = false;
-            }
-            if ($table_actions['fulltext_rebuild'] && $table_actions['fulltext_rebuild_auto_run']) {
-                try {
-                    $results[$schema][$table_actions['table']]['fulltext_rebuild'] = $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], true, true);
-                } catch (\Throwable $exception) {
-                    $results[$schema][$table_actions['table']]['fulltext_rebuild'] = $exception->getMessage();
-                }
-            } else {
-                $results[$schema][$table_actions['table']]['fulltext_rebuild'] = false;
-            }
+            $results[$schema][$table_actions['table']] = $this->processLoop($table_actions, $commander);
         }
         #Reset innodb_optimize_fulltext_only to 0, in case we failed during FULLTEXT optimization.
         if ($this->features['set_global']) {
@@ -427,6 +365,84 @@ class Analyzer
             if (\preg_match('/^(OPTIMIZE|CHECK|ANALYZE|REPAIR|ALTER|FLUSH)/ui', $timing['query']) !== 1) {
                 unset($results['maintainer_general']['timings'][$key]);
             }
+        }
+        return $results;
+    }
+    
+    /**
+     * Actual processing loop for `autoProcess()`.
+     * Sounds funny, but the main reason for moving it out of the main function was that Psalm was timing-out when processing it within the `autoProcess()`
+     *
+     * @param array                                  $table_actions Array with table details and actions
+     * @param \Simbiat\Database\Maintainer\Commander $commander     Commander object to avoid recreation
+     *
+     * @return array
+     */
+    private function processLoop(array $table_actions, Commander $commander): array
+    {
+        $results = [];
+        if ($table_actions['repair'] && $this->settings['repair_auto_run']) {
+            try {
+                $results['repair'] = $commander->repair($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['repair'] = $exception->getMessage();
+            }
+        } else {
+            $results['repair'] = false;
+        }
+        if ($table_actions['check'] && $table_actions['check_auto_run']) {
+            try {
+                $results['check'] = $commander->check($table_actions['schema'], $table_actions['table'], true, true, auto_repair: $this->settings['repair_auto_run']);
+            } catch (\Throwable $exception) {
+                $results['check'] = $exception->getMessage();
+            }
+        } else {
+            $results['check'] = false;
+        }
+        if ($table_actions['compress'] && $this->settings['compress_auto_run']) {
+            try {
+                $results['compress'] = $commander->compress($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['compress'] = $exception->getMessage();
+            }
+        } else {
+            $results['compress'] = false;
+        }
+        if ($table_actions['optimize'] && $table_actions['optimize_auto_run']) {
+            try {
+                $results['optimize'] = $commander->optimize($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['optimize'] = $exception->getMessage();
+            }
+        } else {
+            $results['optimize'] = false;
+        }
+        if ($table_actions['analyze'] && $table_actions['analyze_histogram'] && $table_actions['analyze_auto_run']) {
+            try {
+                $results['analyze_histogram'] = $commander->histogram($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['analyze_histogram'] = $exception->getMessage();
+            }
+        } else {
+            $results['analyze_histogram'] = false;
+        }
+        if ($table_actions['analyze'] && $table_actions['analyze_auto_run']) {
+            try {
+                $results['analyze'] = $commander->analyze($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['analyze'] = $exception->getMessage();
+            }
+        } else {
+            $results['analyze'] = false;
+        }
+        if ($table_actions['fulltext_rebuild'] && $table_actions['fulltext_rebuild_auto_run']) {
+            try {
+                $results['fulltext_rebuild'] = $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['fulltext_rebuild'] = $exception->getMessage();
+            }
+        } else {
+            $results['fulltext_rebuild'] = false;
         }
         return $results;
     }
