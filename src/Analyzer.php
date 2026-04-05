@@ -48,17 +48,18 @@ class Analyzer
      */
     public function suggest(string $schema, string|array $table = []): array
     {
-        $this->schemaTableChecker($schema, $table);
         if (\is_string($table)) {
             $table = [$table];
         }
+        $this->schemaTableChecker($schema, $table);
+        $where_table_in = ($table === [] ? '' : ' AND `table` IN (:table)');
         #Update tables' data
         $this->updateTables($schema, $table);
         #Suggest CHECK
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `check`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
-                                `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                                `schema`=:schema'.$where_table_in.' AND
                                 /*Exclude tables that require repairing*/
                                 `repair`=0 AND
                                 /*Exclude tables for which CHECK has already been suggested*/
@@ -111,7 +112,7 @@ class Analyzer
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `optimize`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
-                                `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                                `schema`=:schema'.$where_table_in.' AND
                                 /*Exclude tables that require repairing*/
                                 `repair`=0 AND
                                 /*Exclude tables for which OPTIMIZE has already been suggested*/
@@ -138,7 +139,7 @@ class Analyzer
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `analyze`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
-                                `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                                `schema`=:schema'.$where_table_in.' AND
                                 /*Exclude tables that require repairing*/
                                 `repair`=0 AND
                                 /*Exclude tables for which ANALYZE has already been suggested*/
@@ -199,7 +200,7 @@ class Analyzer
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `compress`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
-                                `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                                `schema`=:schema'.$where_table_in.' AND
                                 /*Exclude tables that require repairing*/
                                 `repair`=0 AND
                                 /*Exclude tables for which compression has already been suggested*/
@@ -256,7 +257,7 @@ class Analyzer
                 'UPDATE `'.$this->prefix.'tables`
                 SET `fulltext_rebuild`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                 WHERE
-                    `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                    `schema`=:schema'.$where_table_in.' AND
                     `engine`=\'InnoDB\' AND
                     `has_fulltext`=1 AND
                     `fulltext_rebuild`=0';
@@ -266,7 +267,7 @@ class Analyzer
                 'UPDATE `'.$this->prefix.'tables`
                 SET `fulltext_rebuild`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                 WHERE
-                    `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                    `schema`=:schema'.$where_table_in.' AND
                     `engine`=\'MyISAM\' AND
                     `has_fulltext`=1 AND
                     `fulltext_rebuild`=0';
@@ -276,14 +277,14 @@ class Analyzer
         #Run the queries for FULLTEXT rebuild suggestions
         Query::query($fulltext_rebuild, [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
         #If no table was provided, update date for all tables that have no action suggested
-        if (empty($table)) {
+        if ($table === []) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `analyzed`=CURRENT_TIMESTAMP(6) WHERE `schema`=:schema AND
                                     (`check` + `repair` + `compress` + `analyze` + `optimize` + `fulltext_rebuild`)=0;', [':schema' => $schema]);
         }
         #Get all tables for which an action was suggested
         $results = Query::query('SELECT `schema`, `table`, `check`, `check_auto_run`, `repair`, `compress`, `analyze`, `analyze_auto_run`, `optimize`, `optimize_auto_run`, `fulltext_rebuild`, `fulltext_rebuild_auto_run`, `analyze_histogram`
                                     FROM `'.$this->prefix.'tables`
-                                    WHERE `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND
+                                    WHERE `schema`=:schema'.$where_table_in.' AND
                                     (`check` + `repair` + `compress` + `analyze` + `optimize` + `fulltext_rebuild`)>0
                                     ORDER BY `total_length_current`;',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']],
@@ -310,11 +311,14 @@ class Analyzer
      */
     public function autoProcess(string $schema, string|array $table = []): array
     {
+        if (\is_string($table)) {
+            $table = [$table];
+        }
         $this->schemaTableChecker($schema, $table);
         $commander = new Commander($this->dbh, $this->prefix);
         $tables = $this->suggest($schema, $table);
         #Nothing to do if no tables were returned
-        if (empty($tables)) {
+        if (\count($tables) === 0) {
             return [];
         }
         #Enable maintenance mode
@@ -439,6 +443,9 @@ class Analyzer
      */
     public function getCommands(string $schema, string|array $table = [], bool $integrate = false, bool $flat = false): array
     {
+        if (\is_string($table)) {
+            $table = [$table];
+        }
         $this->schemaTableChecker($schema, $table);
         $commander = new Commander($this->dbh, $this->prefix);
         $commands = [];
@@ -488,7 +495,7 @@ class Analyzer
                 $flush = [];
             }
             $deactivate = $commander->maintenance(false);
-            if (empty($commands)) {
+            if (\count($commands) === 0) {
                 $commands = $flush;
             } else {
                 #Flatten the original list
@@ -510,14 +517,13 @@ class Analyzer
      */
     public function updateTables(string $schema, string|array $table = []): void
     {
+        if (\is_string($table)) {
+            $table = [$table];
+        }
         $this->schemaTableChecker($schema, $table);
+        $where_table_in = ($table === [] ? '' : ' AND `table` IN (:table)');
         #We need to check that the `TEMPORARY` column is available in the `TABLES` table because there are cases when it's not available (MySQL or older version of MariaDB)
         $temp_table_check = Query::query('SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = \'information_schema\' AND `TABLE_NAME` = \'TABLES\' AND `COLUMN_NAME` = \'TEMPORARY\';', return: 'all');
-        if (!empty($temp_table_check)) {
-            $temp_table_check = true;
-        } else {
-            $temp_table_check = false;
-        }
         #Delete non-existent old tables
         Query::query([
             'DELETE FROM `'.$this->prefix.'tables` WHERE `schema`=:schema AND (`schema`, `table`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`=:schema);',
@@ -545,7 +551,7 @@ class Analyzer
                    `DATA_FREE`,
                    `CHECK_TIME`
             FROM `information_schema`.`TABLES`
-            WHERE `TABLE_SCHEMA` = :schema'.(empty($table) ? '' : ' AND `TABLE_NAME` IN (:table)').' AND `TABLE_TYPE`=\'BASE TABLE\''.($temp_table_check ? 'AND `TEMPORARY`!=\'Y\'' : '').'
+            WHERE `TABLE_SCHEMA` = :schema'.($table === [] ? '' : ' AND `TABLE_NAME` IN (:table)').' AND `TABLE_TYPE`=\'BASE TABLE\''.($temp_table_check ? 'AND `TEMPORARY`!=\'Y\'' : '').'
             ON DUPLICATE KEY UPDATE `analyzed`=CURRENT_TIMESTAMP(6),
                                     `engine`=values(`engine`),
                                     `row_format`=values(`row_format`),
@@ -565,14 +571,14 @@ class Analyzer
                                 LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
                                 SET `'.$this->prefix.'tables`.`rows_current` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`n_rows`, `'.$this->prefix.'tables`.`rows_current`),
                                     `'.$this->prefix.'tables`.`update_time` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`last_update`, `'.$this->prefix.'tables`.`update_time`)
-                                WHERE `'.$this->prefix.'tables`.`schema`=:schema'.(empty($table) ? '' : ' AND `'.$this->prefix.'tables`.`table` IN (:table)').';',
+                                WHERE `'.$this->prefix.'tables`.`schema`=:schema'.($table === [] ? '' : ' AND `'.$this->prefix.'tables`.`table` IN (:table)').';',
                 [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
         } catch (\Throwable) {
             #Do nothing, not critical, most likely means lack of permissions to `mysql` schema
         }
         #Get the exact number of rows if we use them. Limit only to tables that have not been counted since before today, to help with overall performance in case of multiple runs
         foreach (Query::query('SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
-                                    WHERE `schema`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND `only_if_changed`=1 AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) AND `threshold_rows_delta`>0 ORDER BY `data_length_current`;',
+                                    WHERE `schema`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) AND `threshold_rows_delta`>0 ORDER BY `data_length_current`;',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all') as $data) {
             $count = (string)Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
             try {
@@ -588,14 +594,14 @@ class Analyzer
         #We also exclude tables with no rows, since the checksum will always be 0. But it may be useful to use this along with the `exact_rows` setting, since transactional engines may not return accurate value.
         foreach (Query::query('SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `CHECKSUM` FROM `'.$this->prefix.'tables`
                                     LEFT JOIN `information_schema`.`TABLES` ON `'.$this->prefix.'tables`.`schema`=`TABLE_SCHEMA` AND `'.$this->prefix.'tables`.`table`=`TABLE_NAME`
-                                    WHERE `TABLE_SCHEMA`=:schema'.(empty($table) ? '' : ' AND `table` IN (:table)').' AND `only_if_changed`=1 AND `use_checksum`=1 AND `rows_current`>0 AND (`checksum_date` IS NULL OR DATE(`checksum_date`) < CURRENT_DATE()) ORDER BY `TABLE_ROWS`;',
+                                    WHERE `TABLE_SCHEMA`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `use_checksum`=1 AND `rows_current`>0 AND (`checksum_date` IS NULL OR DATE(`checksum_date`) < CURRENT_DATE()) ORDER BY `TABLE_ROWS`;',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all') as $data) {
             if (empty($data['CHECKSUM'])) {
                 $checksum = (string)Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value');
             } else {
                 $checksum = $data['CHECKSUM'];
             }
-            if (!empty($checksum)) {
+            if (\preg_match('/^\s*$/u', $checksum) === 0) {
                 try {
                     Query::query('UPDATE `'.$this->prefix.'tables`
                                     SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
