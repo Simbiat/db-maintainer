@@ -4,6 +4,7 @@ declare(strict_types = 1);
 namespace Simbiat\Database\Maintainer;
 
 use Simbiat\Database\Query;
+use Simbiat\StringHelpers\Sanitize;
 
 /**
  * Class to analyze database tables and suggest commands to run to maintain them
@@ -617,7 +618,7 @@ class Analyzer
             } else {
                 $checksum = $data['CHECKSUM'];
             }
-            if (\preg_match('/^\s*$/u', $checksum) === 0) {
+            if (!Sanitize::whiteString($checksum)) {
                 try {
                     Query::query('UPDATE `'.$this->prefix.'tables`
                                     SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
