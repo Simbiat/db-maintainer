@@ -5,6 +5,7 @@ namespace Simbiat\Database\Maintainer;
 
 use JetBrains\PhpStorm\ExpectedValues;
 use Simbiat\Database\Query;
+use Simbiat\StringHelpers\Sanitize;
 use function in_array;
 
 /**
@@ -262,7 +263,7 @@ class Settings
     public function setMaintenance(?string $schema = null, ?string $table = null, ?string $setting_column = null, ?string $setting_name = null, ?string $value_column = null): self
     {
         foreach ([$schema, $table, $setting_column, $setting_name, $value_column] as $argument) {
-            if (\preg_match('/^[\w\-]{1,64}$/u', $argument) !== 1) {
+            if (!Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid maintenance argument provided');
             }
         }
@@ -302,7 +303,7 @@ class Settings
             $column = [$column];
         }
         foreach ([$schema, $table, $column] as $argument) {
-            if (\preg_match('/^[\w\-]{1,64}$/u', $argument) !== 1) {
+            if (!Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid argument provided');
             }
         }
@@ -330,7 +331,7 @@ class Settings
             $column = [$column];
         }
         foreach ([$schema, $table, $column] as $argument) {
-            if (\preg_match('/^[\w\-]{1,64}$/u', $argument) !== 1) {
+            if (!Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid argument provided');
             }
         }

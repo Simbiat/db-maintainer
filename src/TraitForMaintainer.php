@@ -4,6 +4,7 @@ declare(strict_types = 1);
 namespace Simbiat\Database\Maintainer;
 
 use Simbiat\Database\Query;
+use Simbiat\StringHelpers\Sanitize;
 
 /**
  * Collection of methods shared by classes in Maintainer namespace
@@ -27,7 +28,7 @@ trait TraitForMaintainer
          * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81560
          */
         set {
-            if (\preg_match('/^[\w\-]{0,49}$/u', $value) === 1) {
+            if (Sanitize::dbName($value, true, 49)) {
                 $this->prefix = $value;
             } else {
                 throw new \UnexpectedValueException('Invalid database prefix');
@@ -61,20 +62,22 @@ trait TraitForMaintainer
      */
     private function schemaTableChecker(string $schema, string|array $table = []): void
     {
-        if (\preg_match('/^[\w\-]{1,64}$/u', $schema) !== 1) {
+        if (!Sanitize::dbName($schema)) {
             throw new \UnexpectedValueException('Invalid database schema `'.$schema.'`');
         }
         if (\preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
             throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
         }
-        if (!empty($table)) {
-            if (\is_string($table)) {
+        if (\is_string($table)) {
+            if (Sanitize::whiteString($table)) {
+                $table = [];
+            } else {
                 $table = [$table];
             }
-            foreach ($table as $table_name) {
-                if (\preg_match('/^[\w\-]{1,64}$/u', $table_name) !== 1) {
-                    throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
-                }
+        }
+        foreach ($table as $table_name) {
+            if (!Sanitize::dbName($table_name)) {
+                throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
             }
         }
     }

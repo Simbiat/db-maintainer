@@ -5,7 +5,7 @@ namespace Simbiat\Database\Maintainer;
 
 use Simbiat\Database\Manage;
 use Simbiat\Database\Query;
-
+use Simbiat\StringHelpers\Sanitize;
 use function is_string;
 
 /**
@@ -342,7 +342,7 @@ class Commander
         }
         #Validate all column names
         foreach ($columns as $column) {
-            if (\preg_match('/^[\w\-]{1,64}$/u', $column) !== 1) {
+            if (!Sanitize::dbName($column)) {
                 throw new \UnexpectedValueException('Invalid table name `'.$column.'`;');
             }
         }
@@ -615,7 +615,7 @@ class Commander
             return false;
         }
         foreach ([$this->settings['maintenance_schema_name'], $this->settings['maintenance_table_name'], $this->settings['maintenance_setting_column'], $this->settings['maintenance_setting_name'], $this->settings['maintenance_value_column']] as $argument) {
-            if (\preg_match('/^[\w\-]{1,64}$/u', $argument) !== 1) {
+            if (!Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid maintenance parameter detected');
             }
         }
