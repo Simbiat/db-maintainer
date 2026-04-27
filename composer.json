@@ -36,7 +36,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Simbiat\\Database\\Maintainer\\": "src/"
+            "Simbiat\\Database\\Maintainer\\": ""
         }
     },
     "support": {
