@@ -137,6 +137,7 @@ class Analyzer
                                 /*Check either fragmentation or size change values are at or above respective thresholds*/
                                 (
                                     `fragmentation_current` >= `threshold_fragmentation` OR
+                                    `size_change` IS NULL OR
                                     `size_change` >= `threshold_size_change`
                                 );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
