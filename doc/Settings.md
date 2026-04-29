@@ -128,6 +128,14 @@ Will set a minimum fragmentation level to suggest OPTIMIZE for a table.
 
 Will set a minimum rows delta for a table. When suggesting CHECK and ANALYZE, the library will compare the difference in the number of rows between the current state and state at the last time CHECK or ANALYZE was run. If the absolute value is equal or more than the set threshold — action will be suggested (if other conditions are satisfied as well).
 
+### setThresholdSizeChange
+
+```php
+(new \Simbiat\Database\Maintainer\Settings())->setThresholdSizeChange(string $schema, string|array $table = [], float $threshold = 25.0);
+```
+
+Will set a minimum size change (in percents) to suggest OPTIMIZE for a table.
+
 ### setBuckets
 
 ```php

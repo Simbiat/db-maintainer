@@ -8,4 +8,5 @@ ALTER TABLE `maintainer__tables`
     CHANGE `optimize_date` `optimize_date` DATETIME(6) NULL DEFAULT NULL COMMENT 'Date when OPTIMIZE was run last time',
     CHANGE `fulltext_rebuild_date` `fulltext_rebuild_date` DATETIME(6) NULL DEFAULT NULL COMMENT 'Date when FULLTEXT rebuild was run last time',
     CHANGE `repair_date` `repair_date` DATETIME(6) NULL DEFAULT NULL COMMENT 'Date when REPAIR was run last time';
+
 UPDATE `maintainer__settings` SET `value` = '1.0.1' WHERE `maintainer__settings`.`setting` = 'version';

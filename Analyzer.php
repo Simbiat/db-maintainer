@@ -134,7 +134,11 @@ class Analyzer
                                     `optimize_days_since` IS NULL OR
                                     `optimize_days_since` >= `optimize_days_delay`
                                 ) AND
-                                `fragmentation_current` >= `threshold_fragmentation`;',
+                                /*Check either fragmentation or size change values are at or above respective thresholds*/
+                                (
+                                    `fragmentation_current` >= `threshold_fragmentation` OR
+                                    `size_change` >= `threshold_size_change`
+                                );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
         #Suggest ANALYZE
         Query::query('UPDATE `'.$this->prefix.'tables`

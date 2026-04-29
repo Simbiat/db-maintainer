@@ -30,9 +30,10 @@ The method itself does not return anything, all the data can be found in the tab
 - Table settings:
     - `exact_rows` - Whether to get exact row count for the table
     - `only_if_changed` - Whether so suggest action only if the table has changed since last time the action was run
-    - `threshold_rows_delta` - Minimum delta for number of rows in the table compared to last run of a command to consider a table significantly changed
-    - `use_checksum` - Whether to get CHECKSUM use it to determine if there was a change
     - `threshold_fragmentation` - Minimum fragmentation ratio to suggest a table for OPTIMIZE
+    - `threshold_rows_delta` - Minimum delta for number of rows in the table compared to last run of a command to consider a table significantly changed
+    - `threshold_size_change` - Minimum size change (in percents) to suggest a table for OPTIMIZE
+    - `use_checksum` - Whether to get CHECKSUM use it to determine if there was a change
     - `analyze_suggest` - Whether ANALYZE can be suggested
     - `analyze_auto_run` - Whether ANALYZE can be run automatically
     - `analyze_days_delay` - Days to wait between runs of ANALYZE
@@ -54,6 +55,7 @@ The method itself does not return anything, all the data can be found in the tab
 - Calculated by virtual column's expression:
     - `total_length_current` - Current table size
     - `fragmentation_current` - Current table fragmentation
+    - `size_change` - Size change since last OPTIMIZE was run
     - `analyze_days_since` - Days since last time CHECK was run
     - `analyze_rows_delta` - Current delta of rows in table compared to the time when last ANALYZE was run
     - `check_days_since` - Days since last time CHECK was run
@@ -82,6 +84,7 @@ The method itself does not return anything, all the data can be found in the tab
     - `data_length_after` - Size of data after last OPTIMIZE
     - `index_length_after` - Size of index after last OPTIMIZE
     - `data_free_after` - Size of free space after last OPTIMIZE
+    - `total_length_after` - Total size after last OPTIMIZE
     - `fulltext_rebuild_date` - Date when FULLTEXT rebuild was run last time
     - `repair_date` - Date when REPAIR was run last time
 

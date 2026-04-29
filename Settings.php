@@ -199,6 +199,37 @@ class Settings
     }
     
     /**
+     * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for CHECK and ANALYZE commands.
+     *
+     * @param string       $schema    Schema name
+     * @param string|array $table     Table name(s). If empty string or array - will update all tables.
+     * @param float        $threshold Rows threshold
+     *
+     * @return $this
+     */
+    public function setThresholdSizeChange(string $schema, string|array $table = [], float $threshold = 25.00): self
+    {
+        $this->schemaTableChecker($schema, $table);
+        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        if ($threshold < 0) {
+            $threshold = 0.0;
+        }
+        #Values over 100 do not make sense either, so reverting them to default 10
+        if ($threshold > 100) {
+            $threshold = 10.0;
+        }
+        if (\is_string($table)) {
+            $table = [$table];
+        }
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_size_change`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+            ':schema' => $schema,
+            ':table' => [$table, 'in', 'string'],
+            ':value' => [$threshold, 'float'],
+        ]);
+        return $this;
+    }
+    
+    /**
      * Set a number of buckets for histograms when using ANALYZE in MySQL 8+
      *
      * @param string       $schema  Schema name
