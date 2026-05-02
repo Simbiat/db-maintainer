@@ -451,7 +451,7 @@ class Commander
             $commands[] = /** @lang SQL */
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
-                SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(6), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+                SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_current`=`DATA_FREE`, `data_length_current`=`DATA_LENGTH`, `index_length_current`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(6), `optimize`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             #OPTIMIZE also implies ANALYZE for InnoDB tables
             if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 $commands[] = /** @lang SQL */
