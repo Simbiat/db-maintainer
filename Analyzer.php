@@ -499,7 +499,7 @@ class Analyzer
             $activate = $commander->maintenance();
             if ($this->features['set_global']) {
                 $fulltext = [/** @lang SQL */
-                    'SET GLOBAL innodb_optimize_fulltext_only=0;',
+                    'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
                     /** @lang SQL */
                     'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;'
                 ];
