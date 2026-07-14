@@ -226,7 +226,7 @@ trait TraitForMaintainer
         $this->schemaTableChecker($schema, $table);
         $commands = [
             'SET GLOBAL innodb_ft_aux_table=\''.$schema.'/'.$table.'\';',
-            'UPDATE `'.$this->prefix.'tables` SET `optimize_fulltext_deleted`=(SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_FT_DELETED) WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';',
+            'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`=(SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_FT_DELETED) WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';',
             'SET GLOBAL innodb_ft_aux_table=NULL;',
         ];
         if ($run) {
