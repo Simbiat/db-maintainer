@@ -24,11 +24,12 @@
         }
     ],
     "require": {
-        "php": "^8.4",
+        "php": "^8.5",
         "simbiat/db-query": "^1.0.2",
         "simbiat/db-manager": "^1.0.1",
         "simbiat/db-installer": "^1",
         "simbiat/stringhelpers": "^2.0",
+        "simbiat/arrayhelpers": "^4.1",
         "ext-mbstring": "*"
     },
     "replace": {

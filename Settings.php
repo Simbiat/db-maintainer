@@ -38,11 +38,9 @@ class Settings
     public function setSuggest(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'compress', 'optimize'])] string $action, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
-            $table = [$table];
-        }
+        $table = $this->normalizeTable($table);
         if (in_array($action, ['analyze', 'check', 'compress', 'optimize'], true)) {
-            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_suggest`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_suggest`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
                 ':value' => (int)$flag,
@@ -66,11 +64,9 @@ class Settings
     public function setRun(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'fulltext_rebuild', 'optimize'])] string $action, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
-            $table = [$table];
-        }
+        $table = $this->normalizeTable($table);
         if (in_array($action, ['analyze', 'check', 'fulltext_rebuild', 'optimize'], true)) {
-            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_auto_run`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_auto_run`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
                 ':value' => (int)$flag,
@@ -94,14 +90,12 @@ class Settings
     public function setDays(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'optimize'])] string $action, int $days): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
-            $table = [$table];
-        }
+        $table = $this->normalizeTable($table);
         if (in_array($action, ['analyze', 'check', 'optimize'], true)) {
             if ($days < 1) {
                 $days = 1;
             }
-            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_days_delay`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_days_delay`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
                 ':value' => [$days, 'int'],
@@ -125,11 +119,9 @@ class Settings
     public function setTableFineTune(string $schema, string|array $table, #[ExpectedValues(['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'])] string $setting, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
-        if (\is_string($table)) {
-            $table = [$table];
-        }
+        $table = $this->normalizeTable($table);
         if (in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], true)) {
-            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$setting.'`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+            Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$setting.'`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
                 ':value' => (int)$flag,
@@ -160,10 +152,8 @@ class Settings
         if ($threshold > 100) {
             $threshold = 10.0;
         }
-        if (\is_string($table)) {
-            $table = [$table];
-        }
-        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_fragmentation`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+        $table = $this->normalizeTable($table);
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_fragmentation`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'float'],
@@ -187,10 +177,33 @@ class Settings
         if ($threshold < 0) {
             $threshold = 0;
         }
-        if (\is_string($table)) {
-            $table = [$table];
+        $table = $this->normalizeTable($table);
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_rows_delta`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
+            ':schema' => $schema,
+            ':table' => [$table, 'in', 'string'],
+            ':value' => [$threshold, 'int'],
+        ]);
+        return $this;
+    }
+    
+    /**
+     * Set a threshold for number rows in the INNODB_FT_DELETED table to suggest FULLTEXT-only OPTIMIZE.
+     *
+     * @param string       $schema    Schema name
+     * @param string|array $table     Table name(s). If empty string or array - will update all tables.
+     * @param int          $threshold Rows threshold
+     *
+     * @return $this
+     */
+    public function setOptimizeDeletedThreshold(string $schema, string|array $table = [], int $threshold = 10000): self
+    {
+        $this->schemaTableChecker($schema, $table);
+        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        if ($threshold < 0) {
+            $threshold = 0;
         }
-        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_rows_delta`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+        $table = $this->normalizeTable($table);
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `optimize_fulltext_deleted`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'int'],
@@ -218,10 +231,8 @@ class Settings
         if ($threshold > 100) {
             $threshold = 10.0;
         }
-        if (\is_string($table)) {
-            $table = [$table];
-        }
-        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_size_change`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+        $table = $this->normalizeTable($table);
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_size_change`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'float'],
@@ -249,10 +260,8 @@ class Settings
         if ($buckets > 1024) {
             $buckets = 1024;
         }
-        if (\is_string($table)) {
-            $table = [$table];
-        }
-        Query::query('UPDATE `'.$this->prefix.'tables` SET `analyze_histogram_buckets`=:value WHERE `schema`=:schema'.(empty($table) ? '' : 'AND `table` IN (:table)').';', [
+        $table = $this->normalizeTable($table);
+        Query::query('UPDATE `'.$this->prefix.'tables` SET `analyze_histogram_buckets`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
             ':value' => [$buckets, 'int'],
@@ -294,25 +303,25 @@ class Settings
     public function setMaintenance(?string $schema = null, ?string $table = null, ?string $setting_column = null, ?string $setting_name = null, ?string $value_column = null): self
     {
         foreach ([$schema, $table, $setting_column, $setting_name, $value_column] as $argument) {
-            if (!Sanitize::dbName($argument)) {
+            if ($argument !== null && !Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid maintenance argument provided');
             }
         }
         $queries = [];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_schema_name\';', [
-            ':value' => [empty($schema) ? null : $schema, empty($schema) ? 'null' : 'string']
+            ':value' => [$schema ?? null, $schema === null ? 'null' : 'string']
         ]];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_table_name\';', [
-            ':value' => [empty($table) ? null : $table, empty($table) ? 'null' : 'string']
+            ':value' => [$table ?? null, $table === null ? 'null' : 'string']
         ]];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_column\';', [
-            ':value' => [empty($setting_column) ? null : $setting_column, empty($setting_column) ? 'null' : 'string']
+            ':value' => [$setting_column ?? null, $setting_column === null ? 'null' : 'string']
         ]];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_name\';', [
-            ':value' => [empty($setting_name) ? null : $setting_name, empty($setting_name) ? 'null' : 'string']
+            ':value' => [$setting_name ?? null, $setting_name === null ? 'null' : 'string']
         ]];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_value_column\';', [
-            ':value' => [empty($value_column) ? null : $value_column, empty($value_column) ? 'null' : 'string']
+            ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string']
         ]];
         Query::query($queries);
         return $this;

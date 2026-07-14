@@ -128,6 +128,14 @@ Will set a minimum fragmentation level to suggest OPTIMIZE for a table.
 
 Will set a minimum rows delta for a table. When suggesting CHECK and ANALYZE, the library will compare the difference in the number of rows between the current state and state at the last time CHECK or ANALYZE was run. If the absolute value is equal or more than the set threshold — action will be suggested (if other conditions are satisfied as well).
 
+### setOptimizeDeletedThreshold
+
+```php
+(new \Simbiat\Database\Maintainer\Settings())->setOptimizeDeletedThreshold(string $schema, string|array $table = [], int $threshold = 10000);
+```
+
+Will set a minimum rows count in INNODB_FT_DELETED for a specific table. When suggesting OPTIMIZE, this value will be compared to the actual number of rows found in INNODB_FT_DELETED to consider FULLTEXT-only OPTIMIZE.
+
 ### setThresholdSizeChange
 
 ```php

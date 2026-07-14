@@ -40,7 +40,7 @@ Runs a `REPAIR` on a MyISAM, Aria, Archive or CSV table. If `prefer_extended` se
 (new \Simbiat\Database\Maintainer\Commander())->analyze(string $schema, string $table, bool $integrate = false, bool $run = false);
 ```
 
-Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table.
+Runs a `ANALYZE` on an InnoDB, MyISAM, or Aria table.
 
 ## histogram
 
@@ -48,7 +48,7 @@ Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table.
 (new \Simbiat\Database\Maintainer\Commander())->histogram(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false);
 ```
 
-Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table to generate histograms, if supported (`UPDATE HISTOGRAM ON` for MySQL 8+ and `PERSISTENT FOR COLUMNS` for MariaDB 10.4+), and there are applicable columns available. Will not do anything if automated generation is already enabled globally for MariaDB (`use_stat_tables` is set to `complementary` or `preferably`). For MySQL 8.4+, will generate histograms only for columns that do not have automated generation enabled for them. If `$no_skip` is `true` will force generation of histograms even if automated generation is enabled.
+Runs a `ANALYZE` on an InnoDB, MyISAM, or Aria table to generate histograms, if supported (`UPDATE HISTOGRAM ON` for MySQL 8+ and `PERSISTENT FOR COLUMNS` for MariaDB 10.4+), and there are applicable columns available. Will not do anything if automated generation is already enabled globally for MariaDB (`use_stat_tables` is set to `complementary` or `preferably`). For MySQL 8.4+, will generate histograms only for columns that do not have automated generation enabled for them. If `$no_skip` is `true` will force generation of histograms even if automated generation is enabled.
 
 ## optimize
 
@@ -56,7 +56,15 @@ Runs a `ANALYZE` on an InnoDB, MyISAM or Aria table to generate histograms, if s
 (new \Simbiat\Database\Maintainer\Commander())->optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false);
 ```
 
-Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria or Archive table. If table has FULLTEXT indexes and `set_global` feature is enabled, will additionally run `SET GLOBAL innodb_optimize_fulltext_only=1;`, `SET GLOBAL innodb_ft_num_word_optimize=10000`, trigger `OPTIMIZE` again to now update FULLTEXT indexes, and then reset the settings. Will not run FULLTEXT optimization if `innodb_optimize_fulltext_only` update fails. For InnoDB will also run ANALYZE for histograms, if supported and enabled for the table. Use `no_skip` set to `true` to force generation of histograms even if automated generation is already enabled (same as with `analyze()`).
+Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria, or Archive table. For InnoDB will also run ANALYZE for histograms, if supported and enabled for the table. Use `no_skip` set to `true` to force generation of histograms even if automated generation is already enabled (same as with `analyze()`). If `set_global` feature is enabled will run `SET GLOBAL innodb_optimize_fulltext_only=0;` to ensure that full `OPTIMIZE` is run for InnoDB tables.
+
+## fulltextOptimize
+
+```php
+(new \Simbiat\Database\Maintainer\Commander())->fulltextOptimize(string $schema, string $table, bool $integrate = false, bool $run = false);
+```
+
+Runs a `OPTIMIZE` on InnoDB tables with FULLTEXT indexes. Will work only if `set_global` feature is enabled, since requires to run `SET GLOBAL innodb_optimize_fulltext_only=1;`, and `SET GLOBAL innodb_ft_num_word_optimize=10000`.
 
 ## fulltextRebuild
 
@@ -64,7 +72,7 @@ Runs a `OPTIMIZE` on an InnoDB, MyISAM, Aria or Archive table. If table has FULL
 (new \Simbiat\Database\Maintainer\Commander())->fulltextRebuild(string $schema, string $table, bool $integrate = false, bool $run = false);
 ```
 
-Rebuilds a FULLTEXT index in an InnoDB, MyISAM, Aria or Mroonga database. In practice, drops and re-adds every FULLTEXT index one-by-one.
+Rebuilds a FULLTEXT index in an InnoDB, MyISAM, Aria, or Mroonga database. In practice, drops and re-adds every FULLTEXT index one-by-one.
 
 ## flush
 

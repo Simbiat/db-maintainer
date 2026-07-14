@@ -19,7 +19,7 @@ trait TraitForMaintainer
     private(set) \PDO|null $dbh = null;
     
     /**
-     * PDO Cron database prefix. Only Latin characters, underscores, dashes and numbers are allowed. Maximum 53 symbols.
+     * PDO Cron database prefix. Only Latin characters, underscores, dashes, and numbers are allowed. Maximum 53 symbols.
      *
      * @var string
      */
@@ -68,6 +68,22 @@ trait TraitForMaintainer
         if (\preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
             throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
         }
+        $table = $this->normalizeTable($table);
+        foreach ($table as $table_name) {
+            if (!Sanitize::dbName($table_name)) {
+                throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
+            }
+        }
+    }
+    
+    /**
+     * Helper function to normalize table name(s)
+     * @param string|array $table
+     *
+     * @return array|string[]
+     */
+    private function normalizeTable(string|array $table = []): array
+    {
         if (\is_string($table)) {
             if (Sanitize::whiteString($table)) {
                 $table = [];
@@ -75,11 +91,7 @@ trait TraitForMaintainer
                 $table = [$table];
             }
         }
-        foreach ($table as $table_name) {
-            if (!Sanitize::dbName($table_name)) {
-                throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
-            }
-        }
+        return $table;
     }
     
     /**
@@ -185,12 +197,41 @@ trait TraitForMaintainer
         } else {
             $features['can_flush_optimizer'] = false;
         }
-        #SEQUENCE engine support CHECK in MariaDB since version 12
+        #SEQUENCE engine supports CHECK in MariaDB since version 12
         if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')) {
             $features['sequence_check'] = true;
         } else {
             $features['sequence_check'] = false;
         }
         return $features;
+    }
+    
+    /**
+     * `OPTIMIZE` the table
+     *
+     * @param string $schema Schema name
+     * @param string $table  Table name
+     * @param bool   $run    Whether to run the commands or just return them
+     *
+     * @return array|bool
+     */
+    private function updateFulltextDeleted(string $schema, string $table, bool $run = false): array|bool
+    {
+        if (!$this->features['set_global']) {
+            if ($run) {
+                return true;
+            }
+            return [];
+        }
+        $this->schemaTableChecker($schema, $table);
+        $commands = [
+            'SET GLOBAL innodb_ft_aux_table=\''.$schema.'/'.$table.'\';',
+            'UPDATE `'.$this->prefix.'tables` SET `optimize_fulltext_deleted`=(SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_FT_DELETED) WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';',
+            'SET GLOBAL innodb_ft_aux_table=NULL;',
+        ];
+        if ($run) {
+            return Query::query($commands);
+        }
+        return $commands;
     }
 }
