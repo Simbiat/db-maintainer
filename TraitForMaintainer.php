@@ -206,32 +206,4 @@ trait TraitForMaintainer
         return $features;
     }
     
-    /**
-     * `OPTIMIZE` the table
-     *
-     * @param string $schema Schema name
-     * @param string $table  Table name
-     * @param bool   $run    Whether to run the commands or just return them
-     *
-     * @return array|bool
-     */
-    private function updateFulltextDeleted(string $schema, string $table, bool $run = false): array|bool
-    {
-        if (!$this->features['set_global']) {
-            if ($run) {
-                return true;
-            }
-            return [];
-        }
-        $this->schemaTableChecker($schema, $table);
-        $commands = [
-            'SET GLOBAL innodb_ft_aux_table=\''.$schema.'/'.$table.'\';',
-            'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`=(SELECT COUNT(*) FROM INFORMATION_SCHEMA.INNODB_FT_DELETED) WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';',
-            'SET GLOBAL innodb_ft_aux_table=NULL;',
-        ];
-        if ($run) {
-            return Query::query($commands);
-        }
-        return $commands;
-    }
 }

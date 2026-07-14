@@ -608,7 +608,7 @@ class Analyzer
         if ($phase === 'optimize' || $phase === 'fulltext') {
             foreach ($to_add as $key => $command) {
                 #Setting of innodb_ft_aux_table and respective updates cannot be parallelized, so need to go to a separate phase
-                if (\str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table') || \str_starts_with($command, 'UPDATE `'.$this->prefix.'tables` SET `optimize_fulltext_deleted`')) {
+                if (\str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table') || \preg_match('/^UPDATE `[^`]+`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`/ui', $command) === 1) {
                     $commands['stats'][] = $command;
                     unset($to_add[$key]);
                     continue;
@@ -663,17 +663,6 @@ class Analyzer
         }
         $commands = $this->getCommands($schema, $table, $integrate);
         #Check if there are any optimization phases. If they are empty, the rest is not needed
-        /*$commands = [
-            'prepare' => [],
-            'common' => [],
-            'pre_optimize' => [],
-            'optimize' => [],
-            'pre_fulltext' => [],
-            'fulltext' => [],
-            'stats' => [],
-            'reset' => [],
-        ];
-        */
         if ($commands['common'] === [] && $commands['optimize'] === [] && $commands['fulltext'] === []) {
             return true;
         }
@@ -786,6 +775,7 @@ class Analyzer
         }
         #Update number of deleted rows for InnoDB tables with FULLTEXT indexes if `SET GLOBAL` permission is present
         if ($this->features['set_global']) {
+            $commander = new Commander($this->dbh, $this->prefix);
             foreach (
                 Query::query('SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
                                         WHERE `schema`=:schema'.$where_table_in.' AND `engine`=\'InnoDB\' AND `has_fulltext`=1;',
@@ -793,7 +783,7 @@ class Analyzer
                 as $data
             ) {
                 /* @noinspection UnusedFunctionResultInspection Not needed in this case */
-                $this->updateFulltextDeleted($schema, $data['table'], true);
+                $commander->updateFulltextDeleted($schema, $data['table'], true);
             }
         }
         #Get the exact number of rows if we use them. Limit only to tables that have not been counted since before today, to help with overall performance in case of multiple runs
