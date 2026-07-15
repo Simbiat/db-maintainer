@@ -534,16 +534,6 @@ class Analyzer
                 /** @lang SQL */
                 'SET GLOBAL innodb_ft_aux_table=NULL;'
             ];
-            $commands['pre_optimize'] = [
-                /** @lang SQL */
-                'SET GLOBAL innodb_optimize_fulltext_only=0;',
-            ];
-            $commands['pre_fulltext'] = [
-                /** @lang SQL */
-                'SET GLOBAL innodb_optimize_fulltext_only=1;',
-                /** @lang SQL */
-                'SET GLOBAL innodb_ft_num_word_optimize=10000;',
-            ];
         }
         #Include `FLUSH` if available
         if ($this->settings['use_flush']) {
@@ -581,6 +571,23 @@ class Analyzer
             }
             if ($table_actions['optimize_fulltext']) {
                 $this->addCommandsToPhase($commands, $table_actions['schema'], $table_actions['table'], 'fulltext', $commander->fulltextOptimize($table_actions['schema'], $table_actions['table'], $integrate));
+            }
+        }
+        if ($this->features['set_global']) {
+            #Populate `pre_optimize` and `pre_fulltext` phases only if `optimize` and `fulltext` have commands in them
+            if ($commands['optimize'] !== []) {
+                $commands['pre_optimize'] = [
+                    /** @lang SQL */
+                    'SET GLOBAL innodb_optimize_fulltext_only=0;',
+                ];
+            }
+            if ($commands['fulltext'] !== []) {
+                $commands['pre_fulltext'] = [
+                    /** @lang SQL */
+                    'SET GLOBAL innodb_optimize_fulltext_only=1;',
+                    /** @lang SQL */
+                    'SET GLOBAL innodb_ft_num_word_optimize=10000;',
+                ];
             }
         }
         return $commands;
