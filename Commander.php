@@ -1,5 +1,6 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
 
 namespace Simbiat\Database\Maintainer;
 
@@ -14,25 +15,25 @@ use function is_string;
 class Commander
 {
     use TraitForMaintainer;
-    
+
     /**
      * Library settings
      * @var array
      */
     private array $settings;
-    
+
     /**
      * List of supported features
      * @var array
      */
     private array $features;
-    
+
     /**
      * Current database name
      * @var string|null
      */
     private(set) string|null $current_database = null;
-    
+
     /**
      * Class constructor
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -41,14 +42,14 @@ class Commander
     public function __construct(\PDO|null $dbh = null, string $prefix = 'maintainer__')
     {
         $this->init($dbh, $prefix);
-        #Get the current database name that we use with update queries
+        // Get the current database name that we use with update queries
         $this->current_database = Query::query('SELECT DATABASE();', return: 'value');
-        #Get settings
+        // Get settings
         $this->settings = $this->getSettings();
-        #Get supported features
+        // Get supported features
         $this->features = $this->getFeatures();
     }
-    
+
     /**
      * Update FULLTEXT statistics for a table
      *
@@ -77,7 +78,7 @@ class Commander
         }
         return $commands;
     }
-    
+
     /**
      * Compress the table
      *
@@ -139,7 +140,7 @@ class Commander
         }
         return $commands;
     }
-    
+
     /**
      * `CHECK` the table
      *
@@ -166,14 +167,14 @@ class Commander
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
             if (is_string($result)) {
-                #InnoDB does not support REPAIR
+                // InnoDB does not support REPAIR
                 if (\preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
-                    #Set repair flag
+                    // Set repair flag
                     Query::query('UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `repair`=1 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';');
                     if ($auto_repair) {
                         if ($this->repair($schema, $table, $integrate, $run, $prefer_extended)) {
                             if ($integrate) {
-                                #Need to wrap the UPDATE in array due to how `Query` works
+                                // Need to wrap the UPDATE in array due to how `Query` works
                                 return Query::query([$commands[1]]);
                             }
                             return true;
@@ -184,14 +185,14 @@ class Commander
                 throw new \RuntimeException('Failed to `CHECK` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
-                #Need to wrap the UPDATE in array due to how `Query` works
+                // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
             return true;
         }
         return $commands;
     }
-    
+
     /**
      * `REPAIR` the table
      *
@@ -220,14 +221,14 @@ class Commander
                 throw new \RuntimeException('Failed to `REPAIR` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
-                #Need to wrap the UPDATE in array due to how `Query` works
+                // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
             return true;
         }
         return $commands;
     }
-    
+
     /**
      * `ANALYZE` the table
      *
@@ -255,14 +256,14 @@ class Commander
                 throw new \RuntimeException('Failed to `ANALYZE` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
-                #Need to wrap the UPDATE in array due to how `Query` works
+                // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
             return true;
         }
         return $commands;
     }
-    
+
     /**
      * `ANALYZE` the table to generate histogram statistics
      *
@@ -280,7 +281,7 @@ class Commander
         if (\preg_match('/^(InnoDB|MyISAM|Aria)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support ANALYZE');
         }
-        #Don't do anything if neither histograms nor persistent statistics are supported or if persistent statistics are supported, but already covered by regular ANALYZE (unless we enforce them)
+        // Don't do anything if neither histograms nor persistent statistics are supported or if persistent statistics are supported, but already covered by regular ANALYZE (unless we enforce them)
         if (!$this->features['histogram'] && (!$this->features['analyze_persistent'] || ($this->features['skip_persistent'] && !$no_skip))) {
             if ($run) {
                 return true;
@@ -342,7 +343,7 @@ class Commander
                         ' : '').';',
             [':schema' => $schema, ':table' => $table],
             return: 'column');
-        #Merge with columns that are explicitly included. Need to do this in a separate query, because otherwise table's schema needs to be provided, and that would require getting is somehow, that would complicate things even more
+        // Merge with columns that are explicitly included. Need to do this in a separate query, because otherwise table's schema needs to be provided, and that would require getting is somehow, that would complicate things even more
         $columns = \array_unique(
             \array_merge(
                 $columns,
@@ -353,7 +354,7 @@ class Commander
                 )
             )
         );
-        #Remove explicitly excluded columns as well. Doing this as a separate query for the same reason as including columns
+        // Remove explicitly excluded columns as well. Doing this as a separate query for the same reason as including columns
         $columns = \array_diff(
             $columns,
             Query::query(
@@ -362,14 +363,14 @@ class Commander
                 return: 'column'
             )
         );
-        #Don't do anything if there are no columns to ANALYZE
+        // Don't do anything if there are no columns to ANALYZE
         if (\count($columns) === 0) {
             if ($run) {
                 return true;
             }
             return [];
         }
-        #Validate all column names
+        // Validate all column names
         foreach ($columns as $column) {
             if (!Sanitize::dbName($column)) {
                 throw new \UnexpectedValueException('Invalid table name `'.$column.'`;');
@@ -377,7 +378,7 @@ class Commander
         }
         $commands = [$this->getHistogramCommand($schema, $table, $columns, $settings_from_library)];
         if ($integrate) {
-            #We do *not* update the `analyze` flag, since regular ANALYZE may need to be run still
+            // We do *not* update the `analyze` flag, since regular ANALYZE may need to be run still
             $commands[] = /** @lang SQL */
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
@@ -387,14 +388,14 @@ class Commander
                 throw new \RuntimeException('Failed to `ANALYZE` for histograms `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
-                #Need to wrap the UPDATE in array due to how `Query` works
+                // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
             return true;
         }
         return $commands;
     }
-    
+
     /**
      * Helper function to generate `ANALYZE` command for histogram generation
      *
@@ -408,19 +409,19 @@ class Commander
     private function getHistogramCommand(string $schema, string $table, array $columns, array $settings_from_library): string
     {
         if ($this->features['histogram']) {
-            #MySQL format
+            // MySQL format
             if ($this->features['auto_histogram']) {
                 $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.\implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS '.($settings_from_library['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;';
             } else {
                 $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.\implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS;';
             }
         } else {
-            #MariaDB format
+            // MariaDB format
             $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.\implode('`, `', $columns).'`) INDEXES ();';
         }
         return $command;
     }
-    
+
     /**
      * Helper function to get histogram settings for a table, if any
      * @param string $schema
@@ -432,7 +433,7 @@ class Commander
     {
         $setting_from_library = [];
         if ($this->features['histogram']) {
-            #Get table settings for histograms, if available
+            // Get table settings for histograms, if available
             $setting_from_library = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->current_database.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';', return: 'row');
         }
         if (empty($setting_from_library['analyze_histogram_buckets'])) {
@@ -443,7 +444,7 @@ class Commander
         }
         return $setting_from_library;
     }
-    
+
     /**
      * `OPTIMIZE` the table
      *
@@ -463,14 +464,14 @@ class Commander
         }
         $commands = [];
         if ($integrate) {
-            #Update statistics before optimization
+            // Update statistics before optimization
             $commands[] = /** @lang SQL */
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
                 SET `data_length_before`=`DATA_LENGTH`, `index_length_before`=`INDEX_LENGTH`, `data_free_before`=`DATA_FREE` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($this->features['set_global']) {
-            #Ensure that we are not using fulltext_only mode
+            // Ensure that we are not using fulltext_only mode
             \array_push($commands, 'SET GLOBAL innodb_optimize_fulltext_only=0;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;');
         } else {
             $commands[] = /** @lang SQL */
@@ -481,7 +482,7 @@ class Commander
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
                 LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
                 SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_current`=`DATA_FREE`, `data_length_current`=`DATA_LENGTH`, `index_length_current`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(6), `optimize`=0, `optimize_fulltext_date`=CURRENT_TIMESTAMP(6), `optimize_fulltext`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
-            #OPTIMIZE also implies ANALYZE for InnoDB tables
+            // OPTIMIZE also implies ANALYZE for InnoDB tables
             if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
                 $commands[] = /** @lang SQL */
                     'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
@@ -490,9 +491,9 @@ class Commander
         if ($run) {
             $this->runOptimize($schema, $table, $commands);
         }
-        #InnoDB recreates table and then does ANALYZE, which does not include histograms by default
+        // InnoDB recreates table and then does ANALYZE, which does not include histograms by default
         if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$no_skip)) && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
-            #We also need to check that `analyze_histogram` is enabled for the table in settings
+            // We also need to check that `analyze_histogram` is enabled for the table in settings
             Query::query('SELECT `analyze_histogram` FROM `'.$this->current_database.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
         ) {
             $histogram = $this->histogram($schema, $table, $integrate, $run, $no_skip);
@@ -500,7 +501,7 @@ class Commander
                 $commands = \array_merge($commands, $histogram);
             }
         }
-        #Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
+        // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
         if ($integrate && $this->features['set_global'] && $details['has_fulltext'] && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
             $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
             if (!$run) {
@@ -512,7 +513,7 @@ class Commander
         }
         return $commands;
     }
-    
+
     /**
      * Helper function to run OPTIMIZE-related commands
      * @param string $schema   Schema name
@@ -534,7 +535,7 @@ class Commander
             }
         }
     }
-    
+
     /**
      * Run FLUSH command if respective privileges are present
      *
@@ -562,7 +563,7 @@ class Commander
         }
         return $command;
     }
-    
+
     /**
      * FULLTEXT-only OPTIMIZE for InnoDB tables
      *
@@ -606,7 +607,7 @@ class Commander
             if ($run) {
                 Query::query(\array_last($commands));
             }
-            #Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
+            // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
             $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
             if (!$run) {
                 $commands = \array_merge($commands, $fulltext);
@@ -617,7 +618,7 @@ class Commander
         }
         return $commands;
     }
-    
+
     /**
      * Rebuild FULLTEXT indexes in a table
      *
@@ -635,7 +636,7 @@ class Commander
         if (\preg_match('/^(InnoDB|MyISAM|Aria|Mroonga)$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
         }
-        #Get FULLTEXT indexes names
+        // Get FULLTEXT indexes names
         $indexes = Query::query('SELECT DISTINCT(`INDEX_NAME`) AS `INDEX_NAME` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = :schema AND `TABLE_NAME` = :table AND `INDEX_TYPE`=\'FULLTEXT\';', [':schema' => $schema, ':table' => $table], return: 'column');
         foreach ($indexes as $index) {
             $commands[] = Manage::rebuildIndexQuery($schema, $table, $index, $run);
@@ -646,7 +647,7 @@ class Commander
             if ($run) {
                 Query::query(\array_last($commands));
             }
-            #Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
+            // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
             $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
             if (!$run) {
                 $commands = \array_merge($commands, $fulltext);
@@ -657,7 +658,7 @@ class Commander
         }
         return $commands;
     }
-    
+
     /**
      * Activate or deactivate maintenance mode
      * @param bool $activate Activate or deactivate maintenance mode
@@ -668,7 +669,7 @@ class Commander
     public function maintenance(bool $activate = true, bool $run = false): bool|string
     {
         if (empty($this->settings['maintenance_schema_name']) || empty($this->settings['maintenance_table_name']) || empty($this->settings['maintenance_setting_column']) || empty($this->settings['maintenance_setting_name']) || empty($this->settings['maintenance_value_column'])) {
-            #Consider success, since the feature is not set up
+            // Consider success, since the feature is not set up
             return false;
         }
         foreach ([$this->settings['maintenance_schema_name'], $this->settings['maintenance_table_name'], $this->settings['maintenance_setting_column'], $this->settings['maintenance_setting_name'], $this->settings['maintenance_value_column']] as $argument) {
@@ -686,7 +687,7 @@ class Commander
         }
         return $command;
     }
-    
+
     /**
      * Helper function to check for errors in results from CHECK, REPAIR, ANALYZE and OPTIMIZE commands
      * @param array $result
@@ -702,7 +703,7 @@ class Commander
         }
         return true;
     }
-    
+
     /**
      * Helper function to get the table details, if a table even exists
      *

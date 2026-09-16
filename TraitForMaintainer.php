@@ -1,5 +1,6 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
 
 namespace Simbiat\Database\Maintainer;
 
@@ -17,7 +18,7 @@ trait TraitForMaintainer
      * @var \PDO|null
      */
     private(set) \PDO|null $dbh = null;
-    
+
     /**
      * PDO Cron database prefix. Only Latin characters, underscores, dashes, and numbers are allowed. Maximum 53 symbols.
      *
@@ -35,7 +36,7 @@ trait TraitForMaintainer
             }
         }
     }
-    
+
     /**
      * Class constructor
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -43,15 +44,15 @@ trait TraitForMaintainer
      */
     private function init(\PDO|null $dbh = null, string $prefix = 'maintainer__'): void
     {
-        #Check that a database connection is established
+        // Check that a database connection is established
         if ($dbh !== null) {
             $this->dbh = $dbh;
         }
         $this->prefix = $prefix;
-        #Establish it, if possible
+        // Establish it, if possible
         new Query($dbh);
     }
-    
+
     /**
      * Sanitize schema and optional table name to prevent injection
      *
@@ -75,7 +76,7 @@ trait TraitForMaintainer
             }
         }
     }
-    
+
     /**
      * Helper function to normalize table name(s)
      * @param string|array $table
@@ -93,7 +94,7 @@ trait TraitForMaintainer
         }
         return $table;
     }
-    
+
     /**
      * Get library settings
      *
@@ -102,11 +103,11 @@ trait TraitForMaintainer
     public function getSettings(): array
     {
         $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix.'settings` WHERE `setting` NOT IN (\'version\')', return: 'pair');
-        #Convert to booleans
+        // Convert to booleans
         foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
             $settings[$setting] = (bool)$settings[$setting];
         }
-        #Get FULLTEXT settings
+        // Get FULLTEXT settings
         $innodb_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'innodb_ft_min_token_size\', \'innodb_ft_max_token_size\', \'innodb_ft_server_stopword_table\', \'innodb_ft_user_stopword_table\', \'innodb_ft_enable_stopword\', \'ngram_token_size\') ORDER BY `VARIABLE_NAME`;', return: 'value');
         $myisam_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'ft_min_word_len\', \'ft_max_word_len\', \'ft_stopword_file\') ORDER BY `VARIABLE_NAME`;', return: 'value');
         if (empty($settings['innodb_fulltext'])) {
@@ -119,7 +120,7 @@ trait TraitForMaintainer
         $settings['myisam_fulltext_current'] = $myisam_fulltext;
         return $settings;
     }
-    
+
     /**
      * Get supported features.
      * @return array
@@ -127,7 +128,7 @@ trait TraitForMaintainer
     public function getFeatures(): array
     {
         $features = [];
-        #Get database version
+        // Get database version
         $version = Query::query('SELECT VERSION();', return: 'column')[0];
         if (mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false) {
             $features['mariadb'] = true;
@@ -135,10 +136,10 @@ trait TraitForMaintainer
             $features['mariadb'] = false;
         }
         $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
-        #If the value is `never`, it means MariaDB does not use persistent statistics at all.
+        // If the value is `never`, it means MariaDB does not use persistent statistics at all.
         if (\is_string($analyze_persistent) && \strcasecmp($analyze_persistent, 'never') !== 0) {
             $features['analyze_persistent'] = true;
-            #If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
+            // If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
             if (\strcasecmp($analyze_persistent, 'complementary') === 0 || \strcasecmp($analyze_persistent, 'preferably') === 0) {
                 $features['skip_persistent'] = true;
             } else {
@@ -148,7 +149,7 @@ trait TraitForMaintainer
             $features['analyze_persistent'] = false;
             $features['skip_persistent'] = true;
         }
-        #Check if histograms are supported. MySQL 8+.
+        // Check if histograms are supported. MySQL 8+.
         if (!$features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
             $features['histogram'] = true;
             if (\version_compare(mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
@@ -160,33 +161,33 @@ trait TraitForMaintainer
             $features['histogram'] = false;
             $features['auto_histogram'] = false;
         }
-        #Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
+        // Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
         $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
         if (\strcasecmp($innodb_file_per_table, 'ON') === 0) {
             $features['file_per_table'] = true;
         } else {
             $features['file_per_table'] = false;
         }
-        #Check if INNODB Compression is supported. MariaDB 10.6+ only.
+        // Check if INNODB Compression is supported. MariaDB 10.6+ only.
         if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
             $features['page_compression'] = true;
         } else {
             $features['page_compression'] = false;
         }
-        #Check if SET GLOBAL is possible
+        // Check if SET GLOBAL is possible
         if (Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'SUPER\', \'SYSTEM_VARIABLES_ADMIN\');', return: 'count') > 0) {
             $features['set_global'] = true;
         } else {
             $features['set_global'] = false;
         }
-        #Check if FLUSH is possible
+        // Check if FLUSH is possible
         if (Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE`=\'RELOAD\';', return: 'count') > 0) {
             $features['can_flush'] = true;
         } else {
             $features['can_flush'] = false;
         }
         if (!$features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
-            #We have MySQL 8 or newer
+            // We have MySQL 8 or newer
             if ($features['can_flush']) {
                 $features['can_flush_optimizer'] = true;
             } elseif (Query::query('SELECT COUNT(*) AS `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE `GRANTEE`=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'FLUSH_OPTIMIZER_COSTS\', \'FLUSH OPTIMIZER COSTS\');', return: 'count') > 0) {
@@ -197,7 +198,7 @@ trait TraitForMaintainer
         } else {
             $features['can_flush_optimizer'] = false;
         }
-        #SEQUENCE engine supports CHECK in MariaDB since version 12
+        // SEQUENCE engine supports CHECK in MariaDB since version 12
         if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')) {
             $features['sequence_check'] = true;
         } else {
@@ -205,5 +206,5 @@ trait TraitForMaintainer
         }
         return $features;
     }
-    
+
 }

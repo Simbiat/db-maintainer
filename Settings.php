@@ -1,5 +1,6 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
 
 namespace Simbiat\Database\Maintainer;
 
@@ -14,7 +15,7 @@ use function in_array;
 class Settings
 {
     use TraitForMaintainer;
-    
+
     /**
      * Class constructor
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -24,7 +25,7 @@ class Settings
     {
         $this->init($dbh, $prefix);
     }
-    
+
     /**
      * Enable or disable suggestion of certain action types.
      *
@@ -50,7 +51,7 @@ class Settings
         }
         return $this;
     }
-    
+
     /**
      * Enable or disable automatic run of certain actio types.
      *
@@ -76,7 +77,7 @@ class Settings
         }
         return $this;
     }
-    
+
     /**
      * Set the number of days to wait since the previous run of an `$action`. Unless the designated amount of time has passed, the action will not be suggested for the table.
      *
@@ -105,7 +106,7 @@ class Settings
         }
         return $this;
     }
-    
+
     /**
      * Enable or disable various options to fine-tune the per-table behavior of the library.
      *
@@ -131,7 +132,7 @@ class Settings
         }
         return $this;
     }
-    
+
     /**
      * Set a threshold for fragmentation of table data. If the current value is equal or greater - table will be suggested for OPTIMIZE.
      *
@@ -144,11 +145,11 @@ class Settings
     public function setThresholdFragmentation(string $schema, string|array $table = [], float $threshold = 10.0): self
     {
         $this->schemaTableChecker($schema, $table);
-        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        // Negative values do not make sense in this case, so reverting them to 0 for consistency
         if ($threshold < 0) {
             $threshold = 0.0;
         }
-        #Values over 100 do not make sense either, so reverting them to default 10
+        // Values over 100 do not make sense either, so reverting them to default 10
         if ($threshold > 100) {
             $threshold = 10.0;
         }
@@ -160,7 +161,7 @@ class Settings
         ]);
         return $this;
     }
-    
+
     /**
      * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for CHECK and ANALYZE commands.
      *
@@ -173,7 +174,7 @@ class Settings
     public function setThresholdRowsDelta(string $schema, string|array $table = [], int $threshold = 10000): self
     {
         $this->schemaTableChecker($schema, $table);
-        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        // Negative values do not make sense in this case, so reverting them to 0 for consistency
         if ($threshold < 0) {
             $threshold = 0;
         }
@@ -185,7 +186,7 @@ class Settings
         ]);
         return $this;
     }
-    
+
     /**
      * Set a threshold for number rows in the INNODB_FT_DELETED table to suggest FULLTEXT-only OPTIMIZE.
      *
@@ -198,7 +199,7 @@ class Settings
     public function setOptimizeDeletedThreshold(string $schema, string|array $table = [], int $threshold = 10000): self
     {
         $this->schemaTableChecker($schema, $table);
-        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        // Negative values do not make sense in this case, so reverting them to 0 for consistency
         if ($threshold < 0) {
             $threshold = 0;
         }
@@ -210,7 +211,7 @@ class Settings
         ]);
         return $this;
     }
-    
+
     /**
      * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for CHECK and ANALYZE commands.
      *
@@ -223,11 +224,11 @@ class Settings
     public function setThresholdSizeChange(string $schema, string|array $table = [], float $threshold = 25.00): self
     {
         $this->schemaTableChecker($schema, $table);
-        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        // Negative values do not make sense in this case, so reverting them to 0 for consistency
         if ($threshold < 0) {
             $threshold = 0.0;
         }
-        #Values over 100 do not make sense either, so reverting them to default 10
+        // Values over 100 do not make sense either, so reverting them to default 10
         if ($threshold > 100) {
             $threshold = 10.0;
         }
@@ -239,7 +240,7 @@ class Settings
         ]);
         return $this;
     }
-    
+
     /**
      * Set a number of buckets for histograms when using ANALYZE in MySQL 8+
      *
@@ -252,11 +253,11 @@ class Settings
     public function setBuckets(string $schema, string|array $table = [], int $buckets = 100): self
     {
         $this->schemaTableChecker($schema, $table);
-        #Negative values do not make sense in this case, so reverting them to 0 for consistency
+        // Negative values do not make sense in this case, so reverting them to 0 for consistency
         if ($buckets < 1) {
             $buckets = 1;
         }
-        #Values over 100 do not make sense either, so reverting them to default 10
+        // Values over 100 do not make sense either, so reverting them to default 10
         if ($buckets > 1024) {
             $buckets = 1024;
         }
@@ -268,7 +269,7 @@ class Settings
         ]);
         return $this;
     }
-    
+
     /**
      * Enable or disable various options to fine-tune the global behavior of the library.
      * @param string $setting Setting name
@@ -288,7 +289,7 @@ class Settings
         }
         return $this;
     }
-    
+
     /**
      * Setup details for the database variable that needs to be updated to enable maintenance mode for the service.
      *
@@ -326,7 +327,7 @@ class Settings
         Query::query($queries);
         return $this;
     }
-    
+
     /**
      * Exclude a column from histogram generation in case it's not excluded by default.
      *
@@ -354,7 +355,7 @@ class Settings
         }
         return $this;
     }
-    
+
     /**
      * Include a column for histogram generation in case it's excluded by default.
      *

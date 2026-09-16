@@ -1,5 +1,6 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
 
 namespace Simbiat\Database\Maintainer;
 
@@ -13,19 +14,19 @@ use Simbiat\StringHelpers\Sanitize;
 class Analyzer
 {
     use TraitForMaintainer;
-    
+
     /**
      * Library settings
      * @var array
      */
     private array $settings;
-    
+
     /**
      * List of supported features
      * @var array
      */
     private array $features;
-    
+
     /**
      * Class constructor
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -34,12 +35,12 @@ class Analyzer
     public function __construct(\PDO|null $dbh = null, string $prefix = 'maintainer__')
     {
         $this->init($dbh, $prefix);
-        #Get settings
+        // Get settings
         $this->settings = $this->getSettings();
-        #Get supported features
+        // Get supported features
         $this->features = $this->getFeatures();
     }
-    
+
     /**
      * Analyze tables to check if running a maintenance task if recommended.
      *
@@ -55,9 +56,9 @@ class Analyzer
         }
         $this->schemaTableChecker($schema, $table);
         $where_table_in = ($table === [] ? '' : ' AND `table` IN (:table)');
-        #Update tables' data
+        // Update tables' data
         $this->updateTables($schema, $table);
-        #Suggest CHECK
+        // Suggest CHECK
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `check`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
@@ -110,7 +111,7 @@ class Analyzer
                                     )
                                 );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #Suggest OPTIMIZE
+        // Suggest OPTIMIZE
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `optimize`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
@@ -142,7 +143,7 @@ class Analyzer
                                     )
                                 );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #Suggest ANALYZE
+        // Suggest ANALYZE
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `analyze`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
@@ -203,7 +204,7 @@ class Analyzer
                                     )
                                 );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #Suggest compression
+        // Suggest compression
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `compress`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
@@ -257,7 +258,7 @@ class Analyzer
                                     )
                                 );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #Check if fulltext rebuild is required (changes in settings detected) for any tables and update FULLTEXT settings after that
+        // Check if fulltext rebuild is required (changes in settings detected) for any tables and update FULLTEXT settings after that
         $fulltext_rebuild = [];
         if ($this->settings['innodb_fulltext_current'] !== $this->settings['innodb_fulltext']) {
             $fulltext_rebuild[] = /** @lang SQL */
@@ -283,9 +284,9 @@ class Analyzer
         }
         $fulltext_rebuild[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:innodb_fulltext WHERE `setting`=\'innodb_fulltext\';', [':innodb_fulltext' => $this->settings['innodb_fulltext_current']]];
         $fulltext_rebuild[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:myisam_fulltext WHERE `setting`=\'myisam_fulltext\';', [':myisam_fulltext' => $this->settings['myisam_fulltext_current']]];
-        #Run the queries for FULLTEXT rebuild suggestions
+        // Run the queries for FULLTEXT rebuild suggestions
         Query::query($fulltext_rebuild, [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #Suggest FULLTEXT-only OPTIMIZE
+        // Suggest FULLTEXT-only OPTIMIZE
         Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `optimize_fulltext`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
@@ -312,12 +313,12 @@ class Analyzer
                                     (SELECT `VARIABLE_VALUE` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME`=\'innodb_file_per_table\') IN (\'1\', \'ON\')
                                 );',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #If no table was provided, update date for all tables that have no action suggested
+        // If no table was provided, update date for all tables that have no action suggested
         if ($table === []) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `analyzed`=CURRENT_TIMESTAMP(6) WHERE `schema`=:schema AND
                                     (`check` + `repair` + `compress` + `analyze` + `optimize` + `optimize_fulltext` + `fulltext_rebuild`)=0;', [':schema' => $schema]);
         }
-        #Get all tables for which an action was suggested
+        // Get all tables for which an action was suggested
         $results = Query::query('SELECT `schema`, `table`, `check`, `check_auto_run`, `repair`, `compress`, `analyze`, `analyze_auto_run`, `optimize`, `optimize_fulltext`, `optimize_auto_run`, `fulltext_rebuild`, `fulltext_rebuild_auto_run`, `analyze_histogram`
                                     FROM `'.$this->prefix.'tables`
                                     WHERE `schema`=:schema'.$where_table_in.' AND
@@ -326,7 +327,7 @@ class Analyzer
             [':schema' => $schema, ':table' => [$table, 'in', 'string']],
             return: 'all'
         );
-        #Ensure booleans are used in results
+        // Ensure booleans are used in results
         foreach ($results as &$result) {
             foreach ($result as $column => &$value) {
                 if (!\in_array($column, ['schema', 'table'], true)) {
@@ -336,7 +337,7 @@ class Analyzer
         }
         return $results;
     }
-    
+
     /**
      * Suggest actions for table(s) and auto-process them, if applicable
      *
@@ -353,19 +354,19 @@ class Analyzer
         $this->schemaTableChecker($schema, $table);
         $commander = new Commander($this->dbh, $this->prefix);
         $tables = $this->suggest($schema, $table);
-        #Nothing to do if no tables were returned
+        // Nothing to do if no tables were returned
         if (\count($tables) === 0) {
             return [];
         }
-        #Enable maintenance mode
+        // Enable maintenance mode
         $results = [];
-        #Not catching exception on enabling maintenance mode: if it fails, we need to stop doing anything else
+        // Not catching exception on enabling maintenance mode: if it fails, we need to stop doing anything else
         $results['maintainer_general']['maintenance_start'] = $commander->maintenance(false, true);
-        #Process tables one by one if an action is both suggested for the table and auto-running of it is enabled
+        // Process tables one by one if an action is both suggested for the table and auto-running of it is enabled
         foreach ($tables as $table_actions) {
             $results[$schema][$table_actions['table']] = $this->processLoop($table_actions, $commander);
         }
-        #Reset innodb_optimize_fulltext_only to 0, in case we failed during FULLTEXT optimization.
+        // Reset innodb_optimize_fulltext_only to 0, in case we failed during FULLTEXT optimization.
         if ($this->features['set_global']) {
             try {
                 $results['maintainer_general']['fulltext_settings_reset'] = Query::query([
@@ -379,7 +380,7 @@ class Analyzer
         } else {
             $results['maintainer_general']['fulltext_settings_reset'] = false;
         }
-        #Use FLUSH, if enabled
+        // Use FLUSH, if enabled
         if ($this->settings['use_flush']) {
             try {
                 $results['maintainer_general']['flush'] = $commander->flush(true);
@@ -389,15 +390,15 @@ class Analyzer
         } else {
             $results['maintainer_general']['flush'] = false;
         }
-        #Stop maintenance mode
+        // Stop maintenance mode
         try {
             $results['maintainer_general']['maintenance_end'] = $commander->maintenance(false, true);
         } catch (\Throwable $exception) {
             $results['maintainer_general']['maintenance_end'] = $exception->getMessage();
         }
-        #Get timings
+        // Get timings
         $results['maintainer_general']['timings'] = Query::$timings;
-        #Remove all unrelated queries
+        // Remove all unrelated queries
         foreach ($results['maintainer_general']['timings'] as $key => $timing) {
             if (\preg_match('/^(OPTIMIZE|CHECK|ANALYZE|REPAIR|ALTER|FLUSH)/ui', $timing['query']) !== 1) {
                 unset($results['maintainer_general']['timings'][$key]);
@@ -405,7 +406,7 @@ class Analyzer
         }
         return $results;
     }
-    
+
     /**
      * Actual processing loop for `autoProcess()`.
      * Sounds funny, but the main reason for moving it out of the main function was that Psalm was timing-out when processing it within the `autoProcess()`
@@ -492,7 +493,7 @@ class Analyzer
         }
         return $results;
     }
-    
+
     /**
      * Suggest actions for table(s) and get commands for their manual processing as an array of phases. Will also include commands for actions that are not allowed to auto-run
      *
@@ -519,13 +520,13 @@ class Analyzer
             'stats' => [],
             'reset' => [],
         ];
-        #`prepare` phase includes only maintenance mode command if set
+        // `prepare` phase includes only maintenance mode command if set
         $activate = $commander->maintenance();
         if (\is_string($activate)) {
             $commands['prepare'][] = $activate;
         }
         if ($this->features['set_global']) {
-            #`reset` phase includes only maintenance command if any
+            // `reset` phase includes only maintenance command if any
             $commands['reset'] = [
                 /** @lang SQL */
                 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
@@ -535,14 +536,14 @@ class Analyzer
                 'SET GLOBAL innodb_ft_aux_table=NULL;'
             ];
         }
-        #Include `FLUSH` if available
+        // Include `FLUSH` if available
         if ($this->settings['use_flush']) {
             $flush = $commander->flush();
             if (\is_string($flush)) {
                 $commands['reset'][] = $flush;
             }
         }
-        #Deactivate maintenance mode
+        // Deactivate maintenance mode
         $deactivate = $commander->maintenance();
         if (\is_string($deactivate)) {
             $commands['reset'][] = $deactivate;
@@ -574,7 +575,7 @@ class Analyzer
             }
         }
         if ($this->features['set_global']) {
-            #Populate `pre_optimize` and `pre_fulltext` phases only if `optimize` and `fulltext` have commands in them
+            // Populate `pre_optimize` and `pre_fulltext` phases only if `optimize` and `fulltext` have commands in them
             if ($commands['optimize'] !== []) {
                 $commands['pre_optimize'] = [
                     /** @lang SQL */
@@ -592,7 +593,7 @@ class Analyzer
         }
         return $commands;
     }
-    
+
     /**
      * Helper function to add commands to a phase
      * @param array  $commands Array to update
@@ -605,7 +606,7 @@ class Analyzer
      */
     private function addCommandsToPhase(array &$commands, string $schema, string $table, string $phase, array $to_add): void
     {
-        #Add keys if missing
+        // Add keys if missing
         if (!\array_key_exists($schema, $commands[$phase])) {
             $commands[$phase][$schema] = [];
         }
@@ -614,13 +615,13 @@ class Analyzer
         }
         if ($phase === 'optimize' || $phase === 'fulltext') {
             foreach ($to_add as $key => $command) {
-                #Setting of innodb_ft_aux_table and respective updates cannot be parallelized, so need to go to a separate phase
+                // Setting of innodb_ft_aux_table and respective updates cannot be parallelized, so need to go to a separate phase
                 if (\str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table') || \preg_match('/^UPDATE `[^`]+`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`/ui', $command) === 1) {
                     $commands['stats'][] = $command;
                     unset($to_add[$key]);
                     continue;
                 }
-                #Remove `SET GLOBAL` commands, since not required in phased build
+                // Remove `SET GLOBAL` commands, since not required in phased build
                 if (\str_starts_with($command, 'SET GLOBAL')) {
                     unset($to_add[$key]);
                 }
@@ -628,7 +629,7 @@ class Analyzer
         }
         $commands[$phase][$schema][$table] = \array_merge($commands[$phase][$schema][$table], $to_add);
     }
-    
+
     /**
      * Suggest actions for table(s) and get commands for their manual processing as a flat array. Will also include commands for actions that are not allowed to auto-run.
      *
@@ -643,7 +644,7 @@ class Analyzer
         $commands = $this->getCommands($schema, $table, $integrate);
         return Converters::flatten($commands);
     }
-    
+
     /**
      * Suggest actions for table(s) and write commands into files sorted by phases. Will also include commands for actions that are not allowed to auto-run.
      *
@@ -659,7 +660,7 @@ class Analyzer
         if (Sanitize::whiteString($path)) {
             throw new \UnexpectedValueException('Empty path provided');
         }
-        #Trim trailing slash
+        // Trim trailing slash
         $path = mb_rtrim($path, '/', 'UTF-8');
         $path = mb_rtrim($path, '\\', 'UTF-8');
         if (\is_file($path)) {
@@ -669,11 +670,11 @@ class Analyzer
             throw new \UnexpectedValueException('Failed to create directory `'.$path.'`');
         }
         $commands = $this->getCommands($schema, $table, $integrate);
-        #Check if there are any optimization phases. If they are empty, the rest is not needed
+        // Check if there are any optimization phases. If they are empty, the rest is not needed
         if ($commands['common'] === [] && $commands['optimize'] === [] && $commands['fulltext'] === []) {
             return true;
         }
-        #Write flat files
+        // Write flat files
         if ($commands['prepare'] !== []) {
             \file_put_contents($path.'/01-prepare.sql', \implode(\PHP_EOL, $commands['prepare']));
         }
@@ -689,7 +690,7 @@ class Analyzer
         if ($commands['reset'] !== []) {
             \file_put_contents($path.'/08-reset.sql', \implode(\PHP_EOL, $commands['reset']));
         }
-        #Process phases
+        // Process phases
         foreach (['common', 'optimize', 'fulltext'] as $phase) {
             if ($commands[$phase] === []) {
                 continue;
@@ -710,7 +711,7 @@ class Analyzer
         }
         return true;
     }
-    
+
     /**
      * Get tables' information for the schema
      *
@@ -726,16 +727,16 @@ class Analyzer
         }
         $this->schemaTableChecker($schema, $table);
         $where_table_in = ($table === [] ? '' : ' AND `table` IN (:table)');
-        #We need to check that the `TEMPORARY` column is available in the `TABLES` table because there are cases when it's not available (MySQL or older version of MariaDB)
+        // We need to check that the `TEMPORARY` column is available in the `TABLES` table because there are cases when it's not available (MySQL or older version of MariaDB)
         $temp_table_check = Query::query('SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = \'information_schema\' AND `TABLE_NAME` = \'TABLES\' AND `COLUMN_NAME` = \'TEMPORARY\';', return: 'all');
-        #Delete non-existent old tables
+        // Delete non-existent old tables
         Query::query([
             'DELETE FROM `'.$this->prefix.'tables` WHERE `schema`=:schema AND (`schema`, `table`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`=:schema);',
             'DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
             'DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);'
         ],
             [':schema' => $schema]);
-        #Insert current basic information about tables
+        // Insert current basic information about tables
         Query::query('INSERT INTO `'.$this->prefix.'tables` (`schema`, `table`, `analyzed`, `engine`, `row_format`, `has_fulltext`, `page_compressed`, `rows_current`, `update_time`, `data_length_current`, `index_length_current`, `data_free_current`, `check_date`)
             SELECT `TABLE_SCHEMA`,
                    `TABLE_NAME`,
@@ -769,7 +770,7 @@ class Analyzer
                                     /*We may have our own `check_date`, so we need to avoid overwriting it with NULL from information_schema*/
                                     `check_date`=IF(values(`check_date`) IS NOT NULL, GREATEST(`check_date`, values(`check_date`)), `check_date`);',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
-        #Try to get tables data from InnoDB persistent statistics
+        // Try to get tables data from InnoDB persistent statistics
         try {
             Query::query('UPDATE `'.$this->prefix.'tables`
                                 LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
@@ -778,9 +779,9 @@ class Analyzer
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema'.($table === [] ? '' : ' AND `'.$this->prefix.'tables`.`table` IN (:table)').';',
                 [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
         } catch (\Throwable) {
-            #Do nothing, not critical, most likely means lack of permissions to `mysql` schema
+            // Do nothing, not critical, most likely means lack of permissions to `mysql` schema
         }
-        #Update number of deleted rows for InnoDB tables with FULLTEXT indexes if `SET GLOBAL` permission is present
+        // Update number of deleted rows for InnoDB tables with FULLTEXT indexes if `SET GLOBAL` permission is present
         if ($this->features['set_global']) {
             $commander = new Commander($this->dbh, $this->prefix);
             foreach (
@@ -793,7 +794,7 @@ class Analyzer
                 $commander->updateFulltextDeleted($schema, $data['table'], true);
             }
         }
-        #Get the exact number of rows if we use them. Limit only to tables that have not been counted since before today, to help with overall performance in case of multiple runs
+        // Get the exact number of rows if we use them. Limit only to tables that have not been counted since before today, to help with overall performance in case of multiple runs
         foreach (
             Query::query('SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
                                     WHERE `schema`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) AND `threshold_rows_delta`>0 ORDER BY `data_length_current`;',
@@ -807,11 +808,11 @@ class Analyzer
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
                     [':schema' => $schema, ':table' => $data['table'], ':count' => $count]);
             } catch (\Throwable) {
-                #Do nothing, not critical.
+                // Do nothing, not critical.
             }
         }
-        #Get the checksums if we use them. Limit only to tables that have not had CHECKSUM taken since before today, to help with overall performance in case of multiple runs.
-        #We also exclude tables with no rows, since the checksum will always be 0. But it may be useful to use this along with the `exact_rows` setting, since transactional engines may not return accurate value.
+        // Get the checksums if we use them. Limit only to tables that have not had CHECKSUM taken since before today, to help with overall performance in case of multiple runs.
+        // We also exclude tables with no rows, since the checksum will always be 0. But it may be useful to use this along with the `exact_rows` setting, since transactional engines may not return accurate value.
         foreach (Query::query('SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `CHECKSUM` FROM `'.$this->prefix.'tables`
                                     LEFT JOIN `information_schema`.`TABLES` ON `'.$this->prefix.'tables`.`schema`=`TABLE_SCHEMA` AND `'.$this->prefix.'tables`.`table`=`TABLE_NAME`
                                     WHERE `TABLE_SCHEMA`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `use_checksum`=1 AND `rows_current`>0 AND (`checksum_date` IS NULL OR DATE(`checksum_date`) < CURRENT_DATE()) ORDER BY `TABLE_ROWS`;',
@@ -828,7 +829,7 @@ class Analyzer
                                     WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
                         [':schema' => $schema, ':table' => $data['TABLE_NAME'], ':checksum' => $checksum]);
                 } catch (\Throwable) {
-                    #Do nothing, not critical.
+                    // Do nothing, not critical.
                 }
             }
         }

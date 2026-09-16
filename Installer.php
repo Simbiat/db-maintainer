@@ -1,5 +1,6 @@
 <?php
-declare(strict_types = 1);
+
+declare(strict_types=1);
 
 namespace Simbiat\Database\Maintainer;
 
@@ -12,7 +13,7 @@ use Simbiat\Database\Query;
 class Installer
 {
     use TraitForMaintainer;
-    
+
     /**
      * Class constructor
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -22,7 +23,7 @@ class Installer
     {
         $this->init($dbh, $prefix);
     }
-    
+
     /**
      * Install the necessary tables
      * @return bool|string
@@ -31,14 +32,14 @@ class Installer
     {
         return new \Simbiat\Database\Installer($this->dbh)::install(__DIR__.'/sql/*.sql', $this->getVersion(), 'maintainer__', $this->prefix);
     }
-    
+
     /**
      * Get the current version of the Maintainer from the database perspective (can be different from the library version)
      * @return string
      */
     public function getVersion(): string
     {
-        #Check if the settings table exists
+        // Check if the settings table exists
         if (Manage::checkTable($this->prefix.'settings') === 1) {
             return Query::query('SELECT `value` FROM `'.$this->prefix.'settings` WHERE `setting`=\'version\'', return: 'value');
         }
