@@ -331,7 +331,7 @@ class Analyzer
         foreach ($results as &$result) {
             foreach ($result as $column => &$value) {
                 if (!\in_array($column, ['schema', 'table'], true)) {
-                    $value = (bool)$value;
+                    $value = (bool) $value;
                 }
             }
         }
@@ -661,8 +661,8 @@ class Analyzer
             throw new \UnexpectedValueException('Empty path provided');
         }
         // Trim trailing slash
-        $path = mb_rtrim($path, '/', 'UTF-8');
-        $path = mb_rtrim($path, '\\', 'UTF-8');
+        $path = \mb_rtrim($path, '/', 'UTF-8');
+        $path = \mb_rtrim($path, '\\', 'UTF-8');
         if (\is_file($path)) {
             throw new \UnexpectedValueException('Path provided is a file');
         }
@@ -801,7 +801,7 @@ class Analyzer
                 [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all')
             as $data
         ) {
-            $count = (string)Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
+            $count = (string) Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
             try {
                 Query::query('UPDATE `'.$this->prefix.'tables`
                                 SET `'.$this->prefix.'tables`.`rows_current`=:count, `rows_date`=CURRENT_TIMESTAMP(6)
@@ -818,7 +818,7 @@ class Analyzer
                                     WHERE `TABLE_SCHEMA`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `use_checksum`=1 AND `rows_current`>0 AND (`checksum_date` IS NULL OR DATE(`checksum_date`) < CURRENT_DATE()) ORDER BY `TABLE_ROWS`;',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all') as $data) {
             if (empty($data['CHECKSUM'])) {
-                $checksum = (string)Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value');
+                $checksum = (string) Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value');
             } else {
                 $checksum = $data['CHECKSUM'];
             }

@@ -166,7 +166,7 @@ class Commander
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
-            if (is_string($result)) {
+            if (\is_string($result)) {
                 // InnoDB does not support REPAIR
                 if (\preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
                     // Set repair flag
@@ -217,7 +217,7 @@ class Commander
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
-            if (is_string($result)) {
+            if (\is_string($result)) {
                 throw new \RuntimeException('Failed to `REPAIR` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
@@ -252,7 +252,7 @@ class Commander
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
-            if (is_string($result)) {
+            if (\is_string($result)) {
                 throw new \RuntimeException('Failed to `ANALYZE` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
@@ -384,7 +384,7 @@ class Commander
         }
         if ($run) {
             $result = $this->checkResults(Query::query($commands[0], return: 'all'));
-            if (is_string($result)) {
+            if (\is_string($result)) {
                 throw new \RuntimeException('Failed to `ANALYZE` for histograms `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
@@ -527,7 +527,7 @@ class Commander
         foreach ($commands as $command) {
             if (\strncasecmp($command, 'OPTIMIZE', 8) === 0) {
                 $result = $this->checkResults(Query::query($command, return: 'all'));
-                if (is_string($result)) {
+                if (\is_string($result)) {
                     throw new \RuntimeException('Failed to `OPTIMIZE` `'.$schema.'`.`'.$table.'` with following error: '.$result);
                 }
             } else {

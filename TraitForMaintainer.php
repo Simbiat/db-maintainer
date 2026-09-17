@@ -105,7 +105,7 @@ trait TraitForMaintainer
         $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix.'settings` WHERE `setting` NOT IN (\'version\')', return: 'pair');
         // Convert to booleans
         foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
-            $settings[$setting] = (bool)$settings[$setting];
+            $settings[$setting] = (bool) $settings[$setting];
         }
         // Get FULLTEXT settings
         $innodb_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'innodb_ft_min_token_size\', \'innodb_ft_max_token_size\', \'innodb_ft_server_stopword_table\', \'innodb_ft_user_stopword_table\', \'innodb_ft_enable_stopword\', \'ngram_token_size\') ORDER BY `VARIABLE_NAME`;', return: 'value');
@@ -130,7 +130,7 @@ trait TraitForMaintainer
         $features = [];
         // Get database version
         $version = Query::query('SELECT VERSION();', return: 'column')[0];
-        if (mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false) {
+        if (\mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false) {
             $features['mariadb'] = true;
         } else {
             $features['mariadb'] = false;
@@ -150,9 +150,9 @@ trait TraitForMaintainer
             $features['skip_persistent'] = true;
         }
         // Check if histograms are supported. MySQL 8+.
-        if (!$features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
+        if (!$features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
             $features['histogram'] = true;
-            if (\version_compare(mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
+            if (\version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
                 $features['auto_histogram'] = true;
             } else {
                 $features['auto_histogram'] = false;
@@ -169,7 +169,7 @@ trait TraitForMaintainer
             $features['file_per_table'] = false;
         }
         // Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
+        if ($features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
             $features['page_compression'] = true;
         } else {
             $features['page_compression'] = false;
@@ -186,7 +186,7 @@ trait TraitForMaintainer
         } else {
             $features['can_flush'] = false;
         }
-        if (!$features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
+        if (!$features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
             // We have MySQL 8 or newer
             if ($features['can_flush']) {
                 $features['can_flush_optimizer'] = true;
@@ -199,7 +199,7 @@ trait TraitForMaintainer
             $features['can_flush_optimizer'] = false;
         }
         // SEQUENCE engine supports CHECK in MariaDB since version 12
-        if ($features['mariadb'] && \version_compare(mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')) {
+        if ($features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')) {
             $features['sequence_check'] = true;
         } else {
             $features['sequence_check'] = false;

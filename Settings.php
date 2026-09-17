@@ -40,11 +40,11 @@ class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (in_array($action, ['analyze', 'check', 'compress', 'optimize'], true)) {
+        if (\in_array($action, ['analyze', 'check', 'compress', 'optimize'], true)) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_suggest`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
-                ':value' => (int)$flag,
+                ':value' => (int) $flag,
             ]);
         } else {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
@@ -66,11 +66,11 @@ class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (in_array($action, ['analyze', 'check', 'fulltext_rebuild', 'optimize'], true)) {
+        if (\in_array($action, ['analyze', 'check', 'fulltext_rebuild', 'optimize'], true)) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_auto_run`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
-                ':value' => (int)$flag,
+                ':value' => (int) $flag,
             ]);
         } else {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
@@ -92,7 +92,7 @@ class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (in_array($action, ['analyze', 'check', 'optimize'], true)) {
+        if (\in_array($action, ['analyze', 'check', 'optimize'], true)) {
             if ($days < 1) {
                 $days = 1;
             }
@@ -121,11 +121,11 @@ class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], true)) {
+        if (\in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], true)) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$setting.'`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
                 ':schema' => $schema,
                 ':table' => [$table, 'in', 'string'],
-                ':value' => (int)$flag,
+                ':value' => (int) $flag,
             ]);
         } else {
             throw new \UnexpectedValueException('Unsupported setting `'.$setting.'`');
@@ -279,9 +279,9 @@ class Settings
      */
     public function setGlobalFineTune(#[ExpectedValues(['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'])] string $setting, bool $flag): self
     {
-        if (in_array($setting, ['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'], true)) {
+        if (\in_array($setting, ['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'], true)) {
             Query::query('UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=:setting;', [
-                ':value' => (int)$flag,
+                ':value' => (int) $flag,
                 ':setting' => $setting,
             ]);
         } else {
