@@ -17,18 +17,21 @@ class Analyzer
 
     /**
      * Library settings
+     *
      * @var array
      */
     private array $settings;
 
     /**
      * List of supported features
+     *
      * @var array
      */
     private array $features;
 
     /**
      * Class constructor
+     *
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
@@ -335,6 +338,7 @@ class Analyzer
                 }
             }
         }
+
         return $results;
     }
 
@@ -404,6 +408,7 @@ class Analyzer
                 unset($results['maintainer_general']['timings'][$key]);
             }
         }
+
         return $results;
     }
 
@@ -419,7 +424,10 @@ class Analyzer
     private function processLoop(array $table_actions, Commander $commander): array
     {
         $results = [];
-        if ($table_actions['repair'] && $this->settings['repair_auto_run']) {
+        if (
+            $table_actions['repair']
+            && $this->settings['repair_auto_run']
+        ) {
             try {
                 $results['repair'] = $commander->repair($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -428,7 +436,10 @@ class Analyzer
         } else {
             $results['repair'] = false;
         }
-        if ($table_actions['check'] && $table_actions['check_auto_run']) {
+        if (
+            $table_actions['check']
+            && $table_actions['check_auto_run']
+        ) {
             try {
                 $results['check'] = $commander->check($table_actions['schema'], $table_actions['table'], true, true, auto_repair: $this->settings['repair_auto_run']);
             } catch (\Throwable $exception) {
@@ -437,7 +448,10 @@ class Analyzer
         } else {
             $results['check'] = false;
         }
-        if ($table_actions['compress'] && $this->settings['compress_auto_run']) {
+        if (
+            $table_actions['compress']
+            && $this->settings['compress_auto_run']
+        ) {
             try {
                 $results['compress'] = $commander->compress($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -446,7 +460,10 @@ class Analyzer
         } else {
             $results['compress'] = false;
         }
-        if ($table_actions['optimize'] && $table_actions['optimize_auto_run']) {
+        if (
+            $table_actions['optimize']
+            && $table_actions['optimize_auto_run']
+        ) {
             try {
                 $results['optimize'] = $commander->optimize($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -455,7 +472,11 @@ class Analyzer
         } else {
             $results['optimize'] = false;
         }
-        if ($table_actions['analyze'] && $table_actions['analyze_histogram'] && $table_actions['analyze_auto_run']) {
+        if (
+            $table_actions['analyze']
+            && $table_actions['analyze_histogram']
+            && $table_actions['analyze_auto_run']
+        ) {
             try {
                 $results['analyze_histogram'] = $commander->histogram($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -464,7 +485,10 @@ class Analyzer
         } else {
             $results['analyze_histogram'] = false;
         }
-        if ($table_actions['analyze'] && $table_actions['analyze_auto_run']) {
+        if (
+            $table_actions['analyze']
+            && $table_actions['analyze_auto_run']
+        ) {
             try {
                 $results['analyze'] = $commander->analyze($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -473,7 +497,11 @@ class Analyzer
         } else {
             $results['analyze'] = false;
         }
-        if ($table_actions['fulltext_rebuild'] && !$table_actions['optimize'] && $table_actions['fulltext_rebuild_auto_run']) {
+        if (
+            $table_actions['fulltext_rebuild']
+            && !$table_actions['optimize']
+            && $table_actions['fulltext_rebuild_auto_run']
+        ) {
             try {
                 $results['fulltext_rebuild'] = $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -482,7 +510,12 @@ class Analyzer
         } else {
             $results['fulltext_rebuild'] = false;
         }
-        if ($table_actions['optimize_fulltext'] && !$table_actions['optimize'] && $table_actions['fulltext_rebuild'] && $table_actions['optimize_auto_run']) {
+        if (
+            $table_actions['optimize_fulltext']
+            && !$table_actions['optimize']
+            && $table_actions['fulltext_rebuild']
+            && $table_actions['optimize_auto_run']
+        ) {
             try {
                 $results['optimize_fulltext'] = $commander->fulltextOptimize($table_actions['schema'], $table_actions['table'], true, true);
             } catch (\Throwable $exception) {
@@ -491,6 +524,7 @@ class Analyzer
         } else {
             $results['optimize_fulltext'] = false;
         }
+
         return $results;
     }
 
@@ -558,7 +592,10 @@ class Analyzer
             if ($table_actions['compress']) {
                 $this->addCommandsToPhase($commands, $table_actions['schema'], $table_actions['table'], 'common', $commander->compress($table_actions['schema'], $table_actions['table'], $integrate));
             }
-            if ($table_actions['analyze'] && $table_actions['analyze_histogram']) {
+            if (
+                $table_actions['analyze']
+                && $table_actions['analyze_histogram']
+            ) {
                 $this->addCommandsToPhase($commands, $table_actions['schema'], $table_actions['table'], 'common', $commander->histogram($table_actions['schema'], $table_actions['table'], $integrate));
             }
             if ($table_actions['analyze']) {
@@ -591,11 +628,13 @@ class Analyzer
                 ];
             }
         }
+
         return $commands;
     }
 
     /**
      * Helper function to add commands to a phase
+     *
      * @param array  $commands Array to update
      * @param string $schema   Schema to add
      * @param string $table    Table to add
@@ -613,12 +652,19 @@ class Analyzer
         if (!\array_key_exists($table, $commands[$phase][$schema])) {
             $commands[$phase][$schema][$table] = [];
         }
-        if ($phase === 'optimize' || $phase === 'fulltext') {
+        if (
+            $phase === 'optimize'
+            || $phase === 'fulltext'
+        ) {
             foreach ($to_add as $key => $command) {
                 // Setting of innodb_ft_aux_table and respective updates cannot be parallelized, so need to go to a separate phase
-                if (\str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table') || \preg_match('/^UPDATE `[^`]+`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`/ui', $command) === 1) {
+                if (
+                    \str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table')
+                    || \preg_match('/^UPDATE `[^`]+`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`/ui', $command) === 1
+                ) {
                     $commands['stats'][] = $command;
                     unset($to_add[$key]);
+
                     continue;
                 }
                 // Remove `SET GLOBAL` commands, since not required in phased build
@@ -642,6 +688,7 @@ class Analyzer
     public function getCommandsFlat(string $schema, string|array $table = [], bool $integrate = false): array
     {
         $commands = $this->getCommands($schema, $table, $integrate);
+
         return Converters::flatten($commands);
     }
 
@@ -666,12 +713,20 @@ class Analyzer
         if (\is_file($path)) {
             throw new \UnexpectedValueException('Path provided is a file');
         }
-        if (!\is_dir($path) && !\mkdir($path, 0777, true) && !\is_dir($path)) {
+        if (
+            !\is_dir($path)
+            && !\mkdir($path, 0777, true)
+            && !\is_dir($path)
+        ) {
             throw new \UnexpectedValueException('Failed to create directory `'.$path.'`');
         }
         $commands = $this->getCommands($schema, $table, $integrate);
         // Check if there are any optimization phases. If they are empty, the rest is not needed
-        if ($commands['common'] === [] && $commands['optimize'] === [] && $commands['fulltext'] === []) {
+        if (
+            $commands['common'] === []
+            && $commands['optimize'] === []
+            && $commands['fulltext'] === []
+        ) {
             return true;
         }
         // Write flat files
@@ -700,7 +755,11 @@ class Analyzer
                 'optimize' => $path.'/04-optimize',
                 'fulltext' => $path.'/06-fulltext',
             };
-            if (!\is_dir($directory) && !\mkdir($directory, 0777, true) && !\is_dir($directory)) {
+            if (
+                !\is_dir($directory)
+                && !\mkdir($directory, 0777, true)
+                && !\is_dir($directory)
+            ) {
                 throw new \UnexpectedValueException('Failed to create directory `'.$directory.'`');
             }
             foreach ($commands[$phase] as $for_schema => $tables) {
@@ -709,6 +768,7 @@ class Analyzer
                 }
             }
         }
+
         return true;
     }
 

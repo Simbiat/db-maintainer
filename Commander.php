@@ -18,24 +18,28 @@ class Commander
 
     /**
      * Library settings
+     *
      * @var array
      */
     private array $settings;
 
     /**
      * List of supported features
+     *
      * @var array
      */
     private array $features;
 
     /**
      * Current database name
+     *
      * @var string|null
      */
     private(set) string|null $current_database = null;
 
     /**
      * Class constructor
+     *
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
@@ -65,6 +69,7 @@ class Commander
             if ($run) {
                 return true;
             }
+
             return [];
         }
         $this->schemaTableChecker($schema, $table);
@@ -76,6 +81,7 @@ class Commander
         if ($run) {
             return Query::query($commands);
         }
+
         return $commands;
     }
 
@@ -116,7 +122,13 @@ class Commander
                     $commands[] = /** @lang SQL */
                         'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `page_compressed`=1, `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
-            } elseif ($this->features['file_per_table'] && ($this->settings['prefer_compressed'] || $prefer_compressed)) {
+            } elseif (
+                $this->features['file_per_table']
+                && (
+                    $this->settings['prefer_compressed']
+                    || $prefer_compressed
+                )
+            ) {
                 if (\strcasecmp($details['ROW_FORMAT'], 'COMPRESSED') === 1) {
                     throw new \UnexpectedValueException('InnoDB table `'.$schema.'`.`'.$table.'` already uses `Compressed` row format');
                 }
@@ -138,6 +150,7 @@ class Commander
         if ($run) {
             return Query::query($commands);
         }
+
         return $commands;
     }
 
@@ -177,19 +190,24 @@ class Commander
                                 // Need to wrap the UPDATE in array due to how `Query` works
                                 return Query::query([$commands[1]]);
                             }
+
                             return true;
                         }
+
                         return false;
                     }
                 }
+
                 throw new \RuntimeException('Failed to `CHECK` `'.$schema.'`.`'.$table.'` with following error: '.$result);
             }
             if ($integrate) {
                 // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
+
             return true;
         }
+
         return $commands;
     }
 
@@ -224,8 +242,10 @@ class Commander
                 // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
+
             return true;
         }
+
         return $commands;
     }
 
@@ -259,8 +279,10 @@ class Commander
                 // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
+
             return true;
         }
+
         return $commands;
     }
 
@@ -282,10 +304,20 @@ class Commander
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support ANALYZE');
         }
         // Don't do anything if neither histograms nor persistent statistics are supported or if persistent statistics are supported, but already covered by regular ANALYZE (unless we enforce them)
-        if (!$this->features['histogram'] && (!$this->features['analyze_persistent'] || ($this->features['skip_persistent'] && !$no_skip))) {
+        if (
+            !$this->features['histogram']
+            && (
+                !$this->features['analyze_persistent']
+                || (
+                    $this->features['skip_persistent']
+                    && !$no_skip
+                )
+            )
+        ) {
             if ($run) {
                 return true;
             }
+
             return [];
         }
         $settings_from_library = $this->getHistogramSettings($schema, $table);
@@ -368,6 +400,7 @@ class Commander
             if ($run) {
                 return true;
             }
+
             return [];
         }
         // Validate all column names
@@ -391,8 +424,10 @@ class Commander
                 // Need to wrap the UPDATE in array due to how `Query` works
                 return Query::query([$commands[1]]);
             }
+
             return true;
         }
+
         return $commands;
     }
 
@@ -419,11 +454,13 @@ class Commander
             // MariaDB format
             $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` PERSISTENT FOR COLUMNS (`'.\implode('`, `', $columns).'`) INDEXES ();';
         }
+
         return $command;
     }
 
     /**
      * Helper function to get histogram settings for a table, if any
+     *
      * @param string $schema
      * @param string $table
      *
@@ -442,6 +479,7 @@ class Commander
         if (empty($setting_from_library['analyze_histogram_auto'])) {
             $setting_from_library['analyze_histogram_auto'] = false;
         }
+
         return $setting_from_library;
     }
 
@@ -492,7 +530,17 @@ class Commander
             $this->runOptimize($schema, $table, $commands);
         }
         // InnoDB recreates table and then does ANALYZE, which does not include histograms by default
-        if (($this->features['histogram'] || ($this->features['analyze_persistent'] && !$this->features['skip_persistent'] && !$no_skip)) && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1 &&
+        if (
+            (
+                $this->features['histogram']
+                || (
+                    $this->features['analyze_persistent']
+                    && !$this->features['skip_persistent']
+                    && !$no_skip
+                )
+            )
+            && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
+            &&
             // We also need to check that `analyze_histogram` is enabled for the table in settings
             Query::query('SELECT `analyze_histogram` FROM `'.$this->current_database.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
         ) {
@@ -502,7 +550,12 @@ class Commander
             }
         }
         // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
-        if ($integrate && $this->features['set_global'] && $details['has_fulltext'] && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
+        if (
+            $integrate
+            && $this->features['set_global']
+            && $details['has_fulltext']
+            && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
+        ) {
             $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
             if (!$run) {
                 $commands = \array_merge($commands, $fulltext);
@@ -511,11 +564,13 @@ class Commander
         if ($run) {
             return true;
         }
+
         return $commands;
     }
 
     /**
      * Helper function to run OPTIMIZE-related commands
+     *
      * @param string $schema   Schema name
      * @param string $table    Table name
      * @param array  $commands List of commands
@@ -561,6 +616,7 @@ class Commander
         if ($run) {
             return Query::query($command);
         }
+
         return $command;
     }
 
@@ -616,6 +672,7 @@ class Commander
         if ($run) {
             return true;
         }
+
         return $commands;
     }
 
@@ -656,11 +713,13 @@ class Commander
         if ($run) {
             return true;
         }
+
         return $commands;
     }
 
     /**
      * Activate or deactivate maintenance mode
+     *
      * @param bool $activate Activate or deactivate maintenance mode
      * @param bool $run      Whether to run the command or just return it
      *
@@ -668,7 +727,13 @@ class Commander
      */
     public function maintenance(bool $activate = true, bool $run = false): bool|string
     {
-        if (empty($this->settings['maintenance_schema_name']) || empty($this->settings['maintenance_table_name']) || empty($this->settings['maintenance_setting_column']) || empty($this->settings['maintenance_setting_name']) || empty($this->settings['maintenance_value_column'])) {
+        if (
+            empty($this->settings['maintenance_schema_name'])
+            || empty($this->settings['maintenance_table_name'])
+            || empty($this->settings['maintenance_setting_column'])
+            || empty($this->settings['maintenance_setting_name'])
+            || empty($this->settings['maintenance_value_column'])
+        ) {
             // Consider success, since the feature is not set up
             return false;
         }
@@ -683,13 +748,16 @@ class Commander
             if (!Query::query($command)) {
                 throw new \RuntimeException('Failed to enable maintenance mode');
             }
+
             return true;
         }
+
         return $command;
     }
 
     /**
      * Helper function to check for errors in results from CHECK, REPAIR, ANALYZE and OPTIMIZE commands
+     *
      * @param array $result
      *
      * @return bool|string
@@ -701,6 +769,7 @@ class Commander
                 return $row['Msg_text'];
             }
         }
+
         return true;
     }
 
@@ -726,9 +795,14 @@ class Commander
                                         FROM `information_schema`.`TABLES`
                                         WHERE `TABLE_SCHEMA`=:schema AND `TABLE_NAME`=:table;',
             [':schema' => $schema, ':table' => $table], return: 'row');
-        if ($details === [] || $details === null || $details === false) {
+        if (
+            $details === []
+            || $details === null
+            || $details === false
+        ) {
             throw new \RuntimeException('Table `'.$schema.'`.`'.$table.'` does not exist');
         }
+
         return $details;
     }
 }

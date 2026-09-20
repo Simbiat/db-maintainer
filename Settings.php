@@ -18,6 +18,7 @@ class Settings
 
     /**
      * Class constructor
+     *
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
@@ -49,6 +50,7 @@ class Settings
         } else {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
         }
+
         return $this;
     }
 
@@ -75,6 +77,7 @@ class Settings
         } else {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
         }
+
         return $this;
     }
 
@@ -104,6 +107,7 @@ class Settings
         } else {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
         }
+
         return $this;
     }
 
@@ -130,6 +134,7 @@ class Settings
         } else {
             throw new \UnexpectedValueException('Unsupported setting `'.$setting.'`');
         }
+
         return $this;
     }
 
@@ -159,6 +164,7 @@ class Settings
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'float'],
         ]);
+
         return $this;
     }
 
@@ -184,6 +190,7 @@ class Settings
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'int'],
         ]);
+
         return $this;
     }
 
@@ -209,6 +216,7 @@ class Settings
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'int'],
         ]);
+
         return $this;
     }
 
@@ -238,6 +246,7 @@ class Settings
             ':table' => [$table, 'in', 'string'],
             ':value' => [$threshold, 'float'],
         ]);
+
         return $this;
     }
 
@@ -267,11 +276,13 @@ class Settings
             ':table' => [$table, 'in', 'string'],
             ':value' => [$buckets, 'int'],
         ]);
+
         return $this;
     }
 
     /**
      * Enable or disable various options to fine-tune the global behavior of the library.
+     *
      * @param string $setting Setting name
      * @param bool   $flag    Enable flag
      *
@@ -287,6 +298,7 @@ class Settings
         } else {
             throw new \UnexpectedValueException('Unsupported setting `'.$setting.'`');
         }
+
         return $this;
     }
 
@@ -304,7 +316,10 @@ class Settings
     public function setMaintenance(?string $schema = null, ?string $table = null, ?string $setting_column = null, ?string $setting_name = null, ?string $value_column = null): self
     {
         foreach ([$schema, $table, $setting_column, $setting_name, $value_column] as $argument) {
-            if ($argument !== null && !Sanitize::dbName($argument)) {
+            if (
+                $argument !== null
+                && !Sanitize::dbName($argument)
+            ) {
                 throw new \UnexpectedValueException('Invalid maintenance argument provided');
             }
         }
@@ -325,6 +340,7 @@ class Settings
             ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string']
         ]];
         Query::query($queries);
+
         return $this;
     }
 
@@ -353,6 +369,7 @@ class Settings
         } else {
             Query::query('DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND `table`=:table AND `column` IN (:column)', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
         }
+
         return $this;
     }
 
@@ -381,6 +398,7 @@ class Settings
         } else {
             Query::query('DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND `table`=:table AND `column` IN (:column)', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
         }
+
         return $this;
     }
 }

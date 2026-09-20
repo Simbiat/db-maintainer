@@ -30,15 +30,16 @@ trait TraitForMaintainer
          */
         set {
             if (Sanitize::dbName($value, true, 49)) {
-                $this->prefix = $value;
+        $this->prefix = $value;
             } else {
-                throw new \UnexpectedValueException('Invalid database prefix');
+        throw new \UnexpectedValueException('Invalid database prefix');
             }
         }
     }
 
     /**
      * Class constructor
+     *
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
@@ -79,6 +80,7 @@ trait TraitForMaintainer
 
     /**
      * Helper function to normalize table name(s)
+     *
      * @param string|array $table
      *
      * @return array|string[]
@@ -92,6 +94,7 @@ trait TraitForMaintainer
                 $table = [$table];
             }
         }
+
         return $table;
     }
 
@@ -118,11 +121,13 @@ trait TraitForMaintainer
         }
         $settings['innodb_fulltext_current'] = $innodb_fulltext;
         $settings['myisam_fulltext_current'] = $myisam_fulltext;
+
         return $settings;
     }
 
     /**
      * Get supported features.
+     *
      * @return array
      */
     public function getFeatures(): array
@@ -137,10 +142,16 @@ trait TraitForMaintainer
         }
         $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
         // If the value is `never`, it means MariaDB does not use persistent statistics at all.
-        if (\is_string($analyze_persistent) && \strcasecmp($analyze_persistent, 'never') !== 0) {
+        if (
+            \is_string($analyze_persistent)
+            && \strcasecmp($analyze_persistent, 'never') !== 0
+        ) {
             $features['analyze_persistent'] = true;
             // If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
-            if (\strcasecmp($analyze_persistent, 'complementary') === 0 || \strcasecmp($analyze_persistent, 'preferably') === 0) {
+            if (
+                \strcasecmp($analyze_persistent, 'complementary') === 0
+                || \strcasecmp($analyze_persistent, 'preferably') === 0
+            ) {
                 $features['skip_persistent'] = true;
             } else {
                 $features['skip_persistent'] = false;
@@ -150,7 +161,10 @@ trait TraitForMaintainer
             $features['skip_persistent'] = true;
         }
         // Check if histograms are supported. MySQL 8+.
-        if (!$features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
+        if (
+            !$features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
+        ) {
             $features['histogram'] = true;
             if (\version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
                 $features['auto_histogram'] = true;
@@ -169,7 +183,10 @@ trait TraitForMaintainer
             $features['file_per_table'] = false;
         }
         // Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        if ($features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')) {
+        if (
+            $features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')
+        ) {
             $features['page_compression'] = true;
         } else {
             $features['page_compression'] = false;
@@ -186,7 +203,10 @@ trait TraitForMaintainer
         } else {
             $features['can_flush'] = false;
         }
-        if (!$features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')) {
+        if (
+            !$features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
+        ) {
             // We have MySQL 8 or newer
             if ($features['can_flush']) {
                 $features['can_flush_optimizer'] = true;
@@ -199,11 +219,15 @@ trait TraitForMaintainer
             $features['can_flush_optimizer'] = false;
         }
         // SEQUENCE engine supports CHECK in MariaDB since version 12
-        if ($features['mariadb'] && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')) {
+        if (
+            $features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')
+        ) {
             $features['sequence_check'] = true;
         } else {
             $features['sequence_check'] = false;
         }
+
         return $features;
     }
 

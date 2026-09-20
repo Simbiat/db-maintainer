@@ -16,6 +16,7 @@ class Installer
 
     /**
      * Class constructor
+     *
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
@@ -26,6 +27,7 @@ class Installer
 
     /**
      * Install the necessary tables
+     *
      * @return bool|string
      */
     public function install(): bool|string
@@ -35,6 +37,7 @@ class Installer
 
     /**
      * Get the current version of the Maintainer from the database perspective (can be different from the library version)
+     *
      * @return string
      */
     public function getVersion(): string
@@ -43,6 +46,7 @@ class Installer
         if (Manage::checkTable($this->prefix.'settings') === 1) {
             return Query::query('SELECT `value` FROM `'.$this->prefix.'settings` WHERE `setting`=\'version\'', return: 'value');
         }
+
         return '0.0.0';
     }
 }
