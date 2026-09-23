@@ -48,10 +48,10 @@ trait TraitForMaintainer
         // Check that a database connection is established
         if ($dbh !== null) {
             $this->dbh = $dbh;
+            // Establish it, if possible
+            new Query($dbh);
         }
         $this->prefix = $prefix;
-        // Establish it, if possible
-        new Query($dbh);
     }
 
     /**
