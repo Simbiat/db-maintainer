@@ -7,7 +7,6 @@ namespace Simbiat\Database\Maintainer;
 use JetBrains\PhpStorm\ExpectedValues;
 use Simbiat\Database\Query;
 use Simbiat\StringHelpers\Sanitize;
-use function in_array;
 
 /**
  * Class to change settings used by the Maintainer library
@@ -292,8 +291,8 @@ class Settings
     {
         if (\in_array($setting, ['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'], true)) {
             Query::query('UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=:setting;', [
-                ':value' => (int) $flag,
                 ':setting' => $setting,
+                ':value' => (int) $flag,
             ]);
         } else {
             throw new \UnexpectedValueException('Unsupported setting `'.$setting.'`');
@@ -325,20 +324,20 @@ class Settings
         }
         $queries = [];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_schema_name\';', [
-            ':value' => [$schema ?? null, $schema === null ? 'null' : 'string']
-        ]];
+            ':value' => [$schema ?? null, $schema === null ? 'null' : 'string'],
+        ],];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_table_name\';', [
-            ':value' => [$table ?? null, $table === null ? 'null' : 'string']
-        ]];
+            ':value' => [$table ?? null, $table === null ? 'null' : 'string'],
+        ],];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_column\';', [
-            ':value' => [$setting_column ?? null, $setting_column === null ? 'null' : 'string']
-        ]];
+            ':value' => [$setting_column ?? null, $setting_column === null ? 'null' : 'string'],
+        ],];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_name\';', [
-            ':value' => [$setting_name ?? null, $setting_name === null ? 'null' : 'string']
-        ]];
+            ':value' => [$setting_name ?? null, $setting_name === null ? 'null' : 'string'],
+        ],];
         $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_value_column\';', [
-            ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string']
-        ]];
+            ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string'],
+        ],];
         Query::query($queries);
 
         return $this;

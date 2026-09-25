@@ -7,7 +7,6 @@ namespace Simbiat\Database\Maintainer;
 use Simbiat\Database\Manage;
 use Simbiat\Database\Query;
 use Simbiat\StringHelpers\Sanitize;
-use function is_string;
 
 /**
  * Class to analyze database tables and suggest commands to run to maintain them
@@ -374,7 +373,8 @@ class Commander
                         )
                         ' : '').';',
             [':schema' => $schema, ':table' => $table],
-            return: 'column');
+            return: 'column',
+        );
         // Merge with columns that are explicitly included. Need to do this in a separate query, because otherwise table's schema needs to be provided, and that would require getting is somehow, that would complicate things even more
         $columns = \array_unique(
             \array_merge(
@@ -382,9 +382,9 @@ class Commander
                 Query::query(
                     'SELECT `column` AS `flag` FROM `'.$this->current_database.'`.`'.$this->prefix.'columns_include` WHERE `schema` = :schema AND `table` = :table;',
                     [':schema' => $schema, ':table' => $table],
-                    return: 'column'
-                )
-            )
+                    return: 'column',
+                ),
+            ),
         );
         // Remove explicitly excluded columns as well. Doing this as a separate query for the same reason as including columns
         $columns = \array_diff(
@@ -392,8 +392,8 @@ class Commander
             Query::query(
                 'SELECT `column` AS `flag` FROM `'.$this->current_database.'`.`'.$this->prefix.'columns_exclude` WHERE `schema` = :schema AND `table` = :table;',
                 [':schema' => $schema, ':table' => $table],
-                return: 'column'
-            )
+                return: 'column',
+            ),
         );
         // Don't do anything if there are no columns to ANALYZE
         if (\count($columns) === 0) {
@@ -652,7 +652,7 @@ class Commander
             /** @lang SQL */
             'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
             /** @lang SQL */
-            'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;'
+            'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
         ];
         if ($run) {
             $this->runOptimize($schema, $table, $commands);
@@ -784,7 +784,8 @@ class Commander
     private function getTableDetails(string $schema, string $table): array
     {
         $this->schemaTableChecker($schema, $table);
-        $details = Query::query('SELECT
+        $details = Query::query(
+            'SELECT
                                             *,
                                             IF(EXISTS(SELECT `INDEX_TYPE`
                                                     FROM `information_schema`.`STATISTICS`
@@ -794,7 +795,9 @@ class Commander
                                             ) AS `has_fulltext`
                                         FROM `information_schema`.`TABLES`
                                         WHERE `TABLE_SCHEMA`=:schema AND `TABLE_NAME`=:table;',
-            [':schema' => $schema, ':table' => $table], return: 'row');
+            [':schema' => $schema, ':table' => $table],
+            return: 'row',
+        );
         if (
             $details === []
             || $details === null

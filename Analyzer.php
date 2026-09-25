@@ -62,7 +62,8 @@ class Analyzer
         // Update tables' data
         $this->updateTables($schema, $table);
         // Suggest CHECK
-        Query::query('UPDATE `'.$this->prefix.'tables`
+        Query::query(
+            'UPDATE `'.$this->prefix.'tables`
                                 SET `check`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
                                 `schema`=:schema'.$where_table_in.' AND
@@ -113,9 +114,11 @@ class Analyzer
                                         )
                                     )
                                 );',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+            [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+        );
         // Suggest OPTIMIZE
-        Query::query('UPDATE `'.$this->prefix.'tables`
+        Query::query(
+            'UPDATE `'.$this->prefix.'tables`
                                 SET `optimize`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
                                 `schema`=:schema'.$where_table_in.' AND
@@ -145,9 +148,11 @@ class Analyzer
                                         (SELECT `VARIABLE_VALUE` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME`=\'innodb_file_per_table\') IN (\'1\', \'ON\')
                                     )
                                 );',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+            [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+        );
         // Suggest ANALYZE
-        Query::query('UPDATE `'.$this->prefix.'tables`
+        Query::query(
+            'UPDATE `'.$this->prefix.'tables`
                                 SET `analyze`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
                                 `schema`=:schema'.$where_table_in.' AND
@@ -206,9 +211,11 @@ class Analyzer
                                         )
                                     )
                                 );',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+            [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+        );
         // Suggest compression
-        Query::query('UPDATE `'.$this->prefix.'tables`
+        Query::query(
+            'UPDATE `'.$this->prefix.'tables`
                                 SET `compress`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
                                 `schema`=:schema'.$where_table_in.' AND
@@ -260,7 +267,8 @@ class Analyzer
                                         `row_format`!=\'DYNAMIC\'
                                     )
                                 );',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+            [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+        );
         // Check if fulltext rebuild is required (changes in settings detected) for any tables and update FULLTEXT settings after that
         $fulltext_rebuild = [];
         if ($this->settings['innodb_fulltext_current'] !== $this->settings['innodb_fulltext']) {
@@ -290,7 +298,8 @@ class Analyzer
         // Run the queries for FULLTEXT rebuild suggestions
         Query::query($fulltext_rebuild, [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
         // Suggest FULLTEXT-only OPTIMIZE
-        Query::query('UPDATE `'.$this->prefix.'tables`
+        Query::query(
+            'UPDATE `'.$this->prefix.'tables`
                                 SET `optimize_fulltext`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                                 WHERE
                                 `schema`=:schema'.$where_table_in.' AND
@@ -315,20 +324,22 @@ class Analyzer
                                     `engine`=\'InnoDB\' AND
                                     (SELECT `VARIABLE_VALUE` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME`=\'innodb_file_per_table\') IN (\'1\', \'ON\')
                                 );',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+            [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+        );
         // If no table was provided, update date for all tables that have no action suggested
         if ($table === []) {
             Query::query('UPDATE `'.$this->prefix.'tables` SET `analyzed`=CURRENT_TIMESTAMP(6) WHERE `schema`=:schema AND
                                     (`check` + `repair` + `compress` + `analyze` + `optimize` + `optimize_fulltext` + `fulltext_rebuild`)=0;', [':schema' => $schema]);
         }
         // Get all tables for which an action was suggested
-        $results = Query::query('SELECT `schema`, `table`, `check`, `check_auto_run`, `repair`, `compress`, `analyze`, `analyze_auto_run`, `optimize`, `optimize_fulltext`, `optimize_auto_run`, `fulltext_rebuild`, `fulltext_rebuild_auto_run`, `analyze_histogram`
+        $results = Query::query(
+            'SELECT `schema`, `table`, `check`, `check_auto_run`, `repair`, `compress`, `analyze`, `analyze_auto_run`, `optimize`, `optimize_fulltext`, `optimize_auto_run`, `fulltext_rebuild`, `fulltext_rebuild_auto_run`, `analyze_histogram`
                                     FROM `'.$this->prefix.'tables`
                                     WHERE `schema`=:schema'.$where_table_in.' AND
                                     (`check` + `repair` + `compress` + `analyze` + `optimize` + `optimize_fulltext` + `fulltext_rebuild`)>0
                                     ORDER BY `total_length_current`;',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']],
-            return: 'all'
+            return: 'all',
         );
         // Ensure booleans are used in results
         foreach ($results as &$result) {
@@ -376,7 +387,7 @@ class Analyzer
                 $results['maintainer_general']['fulltext_settings_reset'] = Query::query([
                     /** @lang SQL */ 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
                     /** @lang SQL */ 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
-                    /** @lang SQL */ 'SET GLOBAL innodb_ft_aux_table=NULL;'
+                    /** @lang SQL */ 'SET GLOBAL innodb_ft_aux_table=NULL;',
                 ]);
             } catch (\Throwable $exception) {
                 $results['maintainer_general']['fulltext_settings_reset'] = $exception->getMessage();
@@ -545,14 +556,14 @@ class Analyzer
         $this->schemaTableChecker($schema, $table);
         $commander = new Commander($this->dbh, $this->prefix);
         $commands = [
-            'prepare' => [],
             'common' => [],
-            'pre_optimize' => [],
-            'optimize' => [],
-            'pre_fulltext' => [],
             'fulltext' => [],
-            'stats' => [],
+            'optimize' => [],
+            'prepare' => [],
+            'pre_fulltext' => [],
+            'pre_optimize' => [],
             'reset' => [],
+            'stats' => [],
         ];
         // `prepare` phase includes only maintenance mode command if set
         $activate = $commander->maintenance();
@@ -567,7 +578,7 @@ class Analyzer
                 /** @lang SQL */
                 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
                 /** @lang SQL */
-                'SET GLOBAL innodb_ft_aux_table=NULL;'
+                'SET GLOBAL innodb_ft_aux_table=NULL;',
             ];
         }
         // Include `FLUSH` if available
@@ -790,14 +801,17 @@ class Analyzer
         // We need to check that the `TEMPORARY` column is available in the `TABLES` table because there are cases when it's not available (MySQL or older version of MariaDB)
         $temp_table_check = Query::query('SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = \'information_schema\' AND `TABLE_NAME` = \'TABLES\' AND `COLUMN_NAME` = \'TEMPORARY\';', return: 'all');
         // Delete non-existent old tables
-        Query::query([
+        Query::query(
+            [
             'DELETE FROM `'.$this->prefix.'tables` WHERE `schema`=:schema AND (`schema`, `table`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`=:schema);',
             'DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
-            'DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);'
-        ],
-            [':schema' => $schema]);
+            'DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
+            ],
+            [':schema' => $schema],
+        );
         // Insert current basic information about tables
-        Query::query('INSERT INTO `'.$this->prefix.'tables` (`schema`, `table`, `analyzed`, `engine`, `row_format`, `has_fulltext`, `page_compressed`, `rows_current`, `update_time`, `data_length_current`, `index_length_current`, `data_free_current`, `check_date`)
+        Query::query(
+            'INSERT INTO `'.$this->prefix.'tables` (`schema`, `table`, `analyzed`, `engine`, `row_format`, `has_fulltext`, `page_compressed`, `rows_current`, `update_time`, `data_length_current`, `index_length_current`, `data_free_current`, `check_date`)
             SELECT `TABLE_SCHEMA`,
                    `TABLE_NAME`,
                    CURRENT_TIMESTAMP(6) AS `analyzed`,
@@ -829,15 +843,18 @@ class Analyzer
                                     `data_free_current`=values(`data_free_current`),
                                     /*We may have our own `check_date`, so we need to avoid overwriting it with NULL from information_schema*/
                                     `check_date`=IF(values(`check_date`) IS NOT NULL, GREATEST(`check_date`, values(`check_date`)), `check_date`);',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+            [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+        );
         // Try to get tables data from InnoDB persistent statistics
         try {
-            Query::query('UPDATE `'.$this->prefix.'tables`
+            Query::query(
+                'UPDATE `'.$this->prefix.'tables`
                                 LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
                                 SET `'.$this->prefix.'tables`.`rows_current` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`n_rows`, `'.$this->prefix.'tables`.`rows_current`),
                                     `'.$this->prefix.'tables`.`update_time` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`last_update`, `'.$this->prefix.'tables`.`update_time`)
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema'.($table === [] ? '' : ' AND `'.$this->prefix.'tables`.`table` IN (:table)').';',
-                [':schema' => $schema, ':table' => [$table, 'in', 'string']]);
+                [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+            );
         } catch (\Throwable) {
             // Do nothing, not critical, most likely means lack of permissions to `mysql` schema
         }
@@ -845,9 +862,12 @@ class Analyzer
         if ($this->features['set_global']) {
             $commander = new Commander($this->dbh, $this->prefix);
             foreach (
-                Query::query('SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
+                Query::query(
+                    'SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
                                         WHERE `schema`=:schema'.$where_table_in.' AND `engine`=\'InnoDB\' AND `has_fulltext`=1;',
-                    [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all')
+                    [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+                    return: 'all',
+                )
                 as $data
             ) {
                 /* @noinspection UnusedFunctionResultInspection Not needed in this case */
@@ -856,27 +876,37 @@ class Analyzer
         }
         // Get the exact number of rows if we use them. Limit only to tables that have not been counted since before today, to help with overall performance in case of multiple runs
         foreach (
-            Query::query('SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
+            Query::query(
+                'SELECT `schema`, `table` FROM `'.$this->prefix.'tables`
                                     WHERE `schema`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) AND `threshold_rows_delta`>0 ORDER BY `data_length_current`;',
-                [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all')
+                [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+                return: 'all',
+            )
             as $data
         ) {
             $count = (string) Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
             try {
-                Query::query('UPDATE `'.$this->prefix.'tables`
+                Query::query(
+                    'UPDATE `'.$this->prefix.'tables`
                                 SET `'.$this->prefix.'tables`.`rows_current`=:count, `rows_date`=CURRENT_TIMESTAMP(6)
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
-                    [':schema' => $schema, ':table' => $data['table'], ':count' => $count]);
+                    [':schema' => $schema, ':table' => $data['table'], ':count' => $count],
+                );
             } catch (\Throwable) {
                 // Do nothing, not critical.
             }
         }
         // Get the checksums if we use them. Limit only to tables that have not had CHECKSUM taken since before today, to help with overall performance in case of multiple runs.
         // We also exclude tables with no rows, since the checksum will always be 0. But it may be useful to use this along with the `exact_rows` setting, since transactional engines may not return accurate value.
-        foreach (Query::query('SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `CHECKSUM` FROM `'.$this->prefix.'tables`
+        foreach (
+            Query::query(
+                'SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `CHECKSUM` FROM `'.$this->prefix.'tables`
                                     LEFT JOIN `information_schema`.`TABLES` ON `'.$this->prefix.'tables`.`schema`=`TABLE_SCHEMA` AND `'.$this->prefix.'tables`.`table`=`TABLE_NAME`
                                     WHERE `TABLE_SCHEMA`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `use_checksum`=1 AND `rows_current`>0 AND (`checksum_date` IS NULL OR DATE(`checksum_date`) < CURRENT_DATE()) ORDER BY `TABLE_ROWS`;',
-            [':schema' => $schema, ':table' => [$table, 'in', 'string']], return: 'all') as $data) {
+                [':schema' => $schema, ':table' => [$table, 'in', 'string']],
+                return: 'all',
+            ) as $data
+        ) {
             if (empty($data['CHECKSUM'])) {
                 $checksum = (string) Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value');
             } else {
@@ -884,10 +914,12 @@ class Analyzer
             }
             if (!Sanitize::whiteString($checksum)) {
                 try {
-                    Query::query('UPDATE `'.$this->prefix.'tables`
+                    Query::query(
+                        'UPDATE `'.$this->prefix.'tables`
                                     SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
                                     WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
-                        [':schema' => $schema, ':table' => $data['TABLE_NAME'], ':checksum' => $checksum]);
+                        [':schema' => $schema, ':table' => $data['TABLE_NAME'], ':checksum' => $checksum],
+                    );
                 } catch (\Throwable) {
                     // Do nothing, not critical.
                 }
