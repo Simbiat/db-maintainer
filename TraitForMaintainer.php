@@ -29,11 +29,11 @@ trait TraitForMaintainer
          * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81560
          */
         set {
-            if (Sanitize::dbName($value, true, 49)) {
-        $this->prefix = $value;
-            } else {
-        throw new \UnexpectedValueException('Invalid database prefix');
+            if (!Sanitize::dbName($value, true, 49)) {
+                throw new \UnexpectedValueException('Invalid database prefix');
             }
+
+            $this->prefix = $value;
         }
     }
 
@@ -88,11 +88,7 @@ trait TraitForMaintainer
     private function normalizeTable(string|array $table = []): array
     {
         if (\is_string($table)) {
-            if (Sanitize::whiteString($table)) {
-                $table = [];
-            } else {
-                $table = [$table];
-            }
+            $table = Sanitize::whiteString($table) ? [] : [$table];
         }
 
         return $table;
@@ -135,11 +131,7 @@ trait TraitForMaintainer
         $features = [];
         // Get database version
         $version = Query::query('SELECT VERSION();', return: 'column')[0];
-        if (\mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false) {
-            $features['mariadb'] = true;
-        } else {
-            $features['mariadb'] = false;
-        }
+        $features['mariadb'] = \mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false ? true : false;
         $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
         // If the value is `never`, it means MariaDB does not use persistent statistics at all.
         if (
@@ -148,14 +140,10 @@ trait TraitForMaintainer
         ) {
             $features['analyze_persistent'] = true;
             // If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
-            if (
+            $features['skip_persistent'] =
                 \strcasecmp($analyze_persistent, 'complementary') === 0
                 || \strcasecmp($analyze_persistent, 'preferably') === 0
-            ) {
-                $features['skip_persistent'] = true;
-            } else {
-                $features['skip_persistent'] = false;
-            }
+             ? true : false;
         } else {
             $features['analyze_persistent'] = false;
             $features['skip_persistent'] = true;
@@ -166,43 +154,23 @@ trait TraitForMaintainer
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
         ) {
             $features['histogram'] = true;
-            if (\version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')) {
-                $features['auto_histogram'] = true;
-            } else {
-                $features['auto_histogram'] = false;
-            }
+            $features['auto_histogram'] = \version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge') ? true : false;
         } else {
             $features['histogram'] = false;
             $features['auto_histogram'] = false;
         }
         // Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
         $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
-        if (\strcasecmp($innodb_file_per_table, 'ON') === 0) {
-            $features['file_per_table'] = true;
-        } else {
-            $features['file_per_table'] = false;
-        }
+        $features['file_per_table'] = \strcasecmp($innodb_file_per_table, 'ON') === 0 ? true : false;
         // Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        if (
+        $features['page_compression'] =
             $features['mariadb']
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')
-        ) {
-            $features['page_compression'] = true;
-        } else {
-            $features['page_compression'] = false;
-        }
+         ? true : false;
         // Check if SET GLOBAL is possible
-        if (Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'SUPER\', \'SYSTEM_VARIABLES_ADMIN\');', return: 'count') > 0) {
-            $features['set_global'] = true;
-        } else {
-            $features['set_global'] = false;
-        }
+        $features['set_global'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'SUPER\', \'SYSTEM_VARIABLES_ADMIN\');', return: 'count') > 0 ? true : false;
         // Check if FLUSH is possible
-        if (Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE`=\'RELOAD\';', return: 'count') > 0) {
-            $features['can_flush'] = true;
-        } else {
-            $features['can_flush'] = false;
-        }
+        $features['can_flush'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE`=\'RELOAD\';', return: 'count') > 0 ? true : false;
         if (
             !$features['mariadb']
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
@@ -219,14 +187,10 @@ trait TraitForMaintainer
             $features['can_flush_optimizer'] = false;
         }
         // SEQUENCE engine supports CHECK in MariaDB since version 12
-        if (
+        $features['sequence_check'] =
             $features['mariadb']
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')
-        ) {
-            $features['sequence_check'] = true;
-        } else {
-            $features['sequence_check'] = false;
-        }
+         ? true : false;
 
         return $features;
     }

@@ -11,7 +11,7 @@ use Simbiat\StringHelpers\Sanitize;
 /**
  * Class to analyze database tables and suggest commands to run to maintain them
  */
-class Commander
+final class Commander
 {
     use TraitForMaintainer;
 

@@ -11,7 +11,7 @@ use Simbiat\StringHelpers\Sanitize;
 /**
  * Class to analyze database tables and suggest commands to run to maintain them
  */
-class Analyzer
+final class Analyzer
 {
     use TraitForMaintainer;
 
@@ -907,22 +907,20 @@ class Analyzer
                 return: 'all',
             ) as $data
         ) {
-            if (empty($data['CHECKSUM'])) {
-                $checksum = (string) Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value');
-            } else {
-                $checksum = $data['CHECKSUM'];
+            $checksum = empty($data['CHECKSUM']) ? (string) Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value') : $data['CHECKSUM'];
+            if (Sanitize::whiteString($checksum)) {
+                continue;
             }
-            if (!Sanitize::whiteString($checksum)) {
-                try {
-                    Query::query(
-                        'UPDATE `'.$this->prefix.'tables`
-                                    SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
-                                    WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
-                        [':schema' => $schema, ':table' => $data['TABLE_NAME'], ':checksum' => $checksum],
-                    );
-                } catch (\Throwable) {
-                    // Do nothing, not critical.
-                }
+
+            try {
+                Query::query(
+                    'UPDATE `'.$this->prefix.'tables`
+								SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
+								WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
+                    [':schema' => $schema, ':table' => $data['TABLE_NAME'], ':checksum' => $checksum],
+                );
+            } catch (\Throwable) {
+                // Do nothing, not critical.
             }
         }
     }

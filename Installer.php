@@ -10,7 +10,7 @@ use Simbiat\Database\Query;
 /**
  * Installer class for the Maintainer library.
  */
-class Installer
+final class Installer
 {
     use TraitForMaintainer;
 
