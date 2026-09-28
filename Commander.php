@@ -16,6 +16,13 @@ final class Commander
     use TraitForMaintainer;
 
     /**
+     * Current database name
+     *
+     * @var string|null
+     */
+    private(set) string|null $current_database = null;
+
+    /**
      * Library settings
      *
      * @var array
@@ -28,13 +35,6 @@ final class Commander
      * @var array
      */
     private array $features;
-
-    /**
-     * Current database name
-     *
-     * @var string|null
-     */
-    private(set) string|null $current_database = null;
 
     /**
      * Class constructor
@@ -108,7 +108,8 @@ final class Commander
             }
             $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC;';
             if ($integrate) {
-                $commands[] = /** @lang SQL */
+                /** @lang SQL */
+                $commands[] =
                     'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
             }
         } elseif (\strcasecmp($details['ENGINE'], 'InnoDB') === 0) {
@@ -118,7 +119,8 @@ final class Commander
             if ($this->features['page_compression']) {
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC PAGE_COMPRESSED=1;';
                 if ($integrate) {
-                    $commands[] = /** @lang SQL */
+                    /** @lang SQL */
+                    $commands[] =
                         'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `page_compressed`=1, `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } elseif (
@@ -133,13 +135,15 @@ final class Commander
                 }
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=COMPRESSED;';
                 if ($integrate) {
-                    $commands[] = /** @lang SQL */
+                    /** @lang SQL */
+                    $commands[] =
                         'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `row_format`=\'Compressed\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } elseif (\preg_match('/^(Compressed|Dynamic)$/ui', $details['ROW_FORMAT']) !== 1) {
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC;';
                 if ($integrate) {
-                    $commands[] = /** @lang SQL */
+                    /** @lang SQL */
+                    $commands[] =
                         'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `row_format`=\'Dynamic\', `compress`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
                 }
             } else {
@@ -173,7 +177,8 @@ final class Commander
         }
         $commands = ['CHECK TABLE `'.$schema.'`.`'.$table.'` '.($this->settings['prefer_extended'] || $prefer_extended ? 'EXTENDED' : 'MEDIUM').';'];
         if ($integrate) {
-            $commands[] = /** @lang SQL */
+            /** @lang SQL */
+            $commands[] =
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `check_date`=CURRENT_TIMESTAMP(6), `check_rows`=`rows_current`, `check_checksum`=`checksum_current`, `check`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
@@ -229,7 +234,8 @@ final class Commander
         }
         $commands = ['REPAIR TABLE `'.$schema.'`.`'.$table.'`'.($this->settings['prefer_extended'] || $prefer_extended ? ' EXTENDED' : '').';'];
         if ($integrate) {
-            $commands[] = /** @lang SQL */
+            /** @lang SQL */
+            $commands[] =
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `repair_date`=CURRENT_TIMESTAMP(6), `repair`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
@@ -266,7 +272,8 @@ final class Commander
         }
         $commands = ['ANALYZE TABLE `'.$schema.'`.`'.$table.'`;'];
         if ($integrate) {
-            $commands[] = /** @lang SQL */
+            /** @lang SQL */
+            $commands[] =
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
@@ -321,6 +328,7 @@ final class Commander
         }
         $settings_from_library = $this->getHistogramSettings($schema, $table);
         $columns = Query::query(
+        // phpcs:ignore Simbiat.SQL.DateTimeFunctions.MissingPrecision -- These are comparisons, not functions
             'SELECT `COLUMN_NAME`
                     FROM `information_schema`.`COLUMNS` AS `c`
                     WHERE `TABLE_SCHEMA` = :schema
@@ -412,7 +420,8 @@ final class Commander
         $commands = [$this->getHistogramCommand($schema, $table, $columns, $settings_from_library)];
         if ($integrate) {
             // We do *not* update the `analyze` flag, since regular ANALYZE may need to be run still
-            $commands[] = /** @lang SQL */
+            /** @lang SQL */
+            $commands[] =
                 'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
         }
         if ($run) {
@@ -429,6 +438,275 @@ final class Commander
         }
 
         return $commands;
+    }
+
+    /**
+     * `OPTIMIZE` the table
+     *
+     * @param string $schema    Schema name
+     * @param string $table     Table name
+     * @param bool   $integrate Whether to generate commands to update library's tables
+     * @param bool   $run       Whether to run the commands or just return them
+     * @param bool   $no_skip   Whether to enforce statistics generation even if it's covered by regular `ANALYZE`. Used only for InnoDB tables.
+     *
+     * @return array|bool
+     */
+    public function optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false): array|bool
+    {
+        $details = $this->getTableDetails($schema, $table);
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive)$/ui', $details['ENGINE']) !== 1) {
+            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
+        }
+        $commands = [];
+        if ($integrate) {
+            // Update statistics before optimization
+            /** @lang SQL */
+            $commands[] =
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
+                LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
+                SET `data_length_before`=`DATA_LENGTH`, `index_length_before`=`INDEX_LENGTH`, `data_free_before`=`DATA_FREE` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+        }
+        if ($this->features['set_global']) {
+            // Ensure that we are not using fulltext_only mode
+            \array_push($commands, 'SET GLOBAL innodb_optimize_fulltext_only=0;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;');
+        } else {
+            /** @lang SQL */
+            $commands[] =
+                'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;';
+        }
+        if ($integrate) {
+            /** @lang SQL */
+            $commands[] =
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
+                LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
+                SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_current`=`DATA_FREE`, `data_length_current`=`DATA_LENGTH`, `index_length_current`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(6), `optimize`=0, `optimize_fulltext_date`=CURRENT_TIMESTAMP(6), `optimize_fulltext`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+            // OPTIMIZE also implies ANALYZE for InnoDB tables
+            if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
+                /** @lang SQL */
+                $commands[] =
+                    'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+            }
+        }
+        if ($run) {
+            $this->runOptimize($schema, $table, $commands);
+        }
+        // InnoDB recreates table and then does ANALYZE, which does not include histograms by default
+        if (
+            (
+                $this->features['histogram']
+                || (
+                    $this->features['analyze_persistent']
+                    && !$this->features['skip_persistent']
+                    && !$no_skip
+                )
+            )
+            && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
+            &&
+            // We also need to check that `analyze_histogram` is enabled for the table in settings
+            Query::query('SELECT `analyze_histogram` FROM `'.$this->current_database.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
+        ) {
+            $histogram = $this->histogram($schema, $table, $integrate, $run, $no_skip);
+            if (!$run) {
+                $commands = \array_merge($commands, $histogram);
+            }
+        }
+        // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
+        if (
+            $integrate
+            && $this->features['set_global']
+            && $details['has_fulltext']
+            && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
+        ) {
+            $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
+            if (!$run) {
+                $commands = \array_merge($commands, $fulltext);
+            }
+        }
+        if ($run) {
+            return true;
+        }
+
+        return $commands;
+    }
+
+    /**
+     * Run FLUSH command if respective privileges are present
+     *
+     * @param bool $run Whether to run the command or just return it
+     *
+     * @return bool|string
+     */
+    public function flush(bool $run = false): bool|string
+    {
+        $command = '';
+        if ($this->features['mariadb']) {
+            if ($this->features['can_flush']) {
+                /** @lang SQL */
+                $command =
+                    'FLUSH LOCAL HOSTS, QUERY CACHE, TABLE_STATISTICS, INDEX_STATISTICS, USER_STATISTICS;';
+            }
+        } elseif ($this->features['can_flush_optimizer']) {
+            /** @lang SQL */
+            $command =
+                'FLUSH OPTIMIZER_COSTS;';
+        }
+        if ($command === '') {
+            return false;
+        }
+        if ($run) {
+            return Query::query($command);
+        }
+
+        return $command;
+    }
+
+    /**
+     * FULLTEXT-only OPTIMIZE for InnoDB tables
+     *
+     * @param string $schema    Schema name
+     * @param string $table     Table name
+     * @param bool   $integrate Whether to generate commands to update library's tables
+     * @param bool   $run       Whether to run the commands or just return them
+     *
+     * @return array|bool
+     */
+    public function fulltextOptimize(string $schema, string $table, bool $integrate = false, bool $run = false): bool|array
+    {
+        if (!$this->features['set_global']) {
+            throw new \UnexpectedValueException('Lacking `SET GLOBAL` permission');
+        }
+        $details = $this->getTableDetails($schema, $table);
+        if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) !== 1) {
+            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support FULLTEXT-only OPTIMIZE');
+        }
+        if (!$details['has_fulltext']) {
+            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` does not have FULLTEXT indexes');
+        }
+        $commands = [
+            /** @lang SQL */
+            'SET GLOBAL innodb_optimize_fulltext_only=1;',
+            /** @lang SQL */
+            'SET GLOBAL innodb_ft_num_word_optimize=10000;',
+            /** @lang SQL */
+            'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;',
+            /** @lang SQL */
+            'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
+            /** @lang SQL */
+            'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
+        ];
+        if ($run) {
+            $this->runOptimize($schema, $table, $commands);
+        }
+        if ($integrate) {
+            /** @lang SQL */
+            $commands[] =
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `optimize_fulltext_date`=CURRENT_TIMESTAMP(6), `optimize_fulltext`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+            if ($run) {
+                Query::query(\array_last($commands));
+            }
+            // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
+            $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
+            if (!$run) {
+                $commands = \array_merge($commands, $fulltext);
+            }
+        }
+        if ($run) {
+            return true;
+        }
+
+        return $commands;
+    }
+
+    /**
+     * Rebuild FULLTEXT indexes in a table
+     *
+     * @param string $schema    Schema name
+     * @param string $table     Table name
+     * @param bool   $integrate Whether to generate commands to update library's tables
+     * @param bool   $run       Whether to run the commands or just return them
+     *
+     * @return array|bool
+     */
+    public function fulltextRebuild(string $schema, string $table, bool $integrate = false, bool $run = false): bool|array
+    {
+        $details = $this->getTableDetails($schema, $table);
+        $commands = [];
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Mroonga)$/ui', $details['ENGINE']) !== 1) {
+            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
+        }
+        // Get FULLTEXT indexes names
+        $indexes = Query::query('SELECT DISTINCT(`INDEX_NAME`) AS `INDEX_NAME` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = :schema AND `TABLE_NAME` = :table AND `INDEX_TYPE`=\'FULLTEXT\';', [
+            ':schema' => $schema,
+            ':table' => $table,
+        ], return: 'column');
+        foreach ($indexes as $index) {
+            $commands[] = Manage::rebuildIndexQuery($schema, $table, $index, $run);
+        }
+        if ($integrate) {
+            /** @lang SQL */
+            $commands[] =
+                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(6), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
+            if ($run) {
+                Query::query(\array_last($commands));
+            }
+            // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
+            $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
+            if (!$run) {
+                $commands = \array_merge($commands, $fulltext);
+            }
+        }
+        if ($run) {
+            return true;
+        }
+
+        return $commands;
+    }
+
+    /**
+     * Activate or deactivate maintenance mode
+     *
+     * @param bool $activate Activate or deactivate maintenance mode
+     * @param bool $run      Whether to run the command or just return it
+     *
+     * @return bool|string
+     */
+    public function maintenance(bool $activate = true, bool $run = false): bool|string
+    {
+        if (
+            empty($this->settings['maintenance_schema_name'])
+            || empty($this->settings['maintenance_table_name'])
+            || empty($this->settings['maintenance_setting_column'])
+            || empty($this->settings['maintenance_setting_name'])
+            || empty($this->settings['maintenance_value_column'])
+        ) {
+            // Consider success, since the feature is not set up
+            return false;
+        }
+        foreach (
+            [
+                     $this->settings['maintenance_schema_name'],
+                     $this->settings['maintenance_table_name'],
+                     $this->settings['maintenance_setting_column'],
+                     $this->settings['maintenance_setting_name'],
+                     $this->settings['maintenance_value_column'],
+                 ] as $argument
+        ) {
+            if (!Sanitize::dbName($argument)) {
+                throw new \UnexpectedValueException('Invalid maintenance parameter detected');
+            }
+        }
+        /** @lang SQL */
+        $command =
+            'UPDATE `'.$this->settings['maintenance_schema_name'].'`.`'.$this->settings['maintenance_table_name'].'` SET `'.$this->settings['maintenance_value_column'].'` = '.($activate ? '1' : '0').' WHERE `'.$this->settings['maintenance_setting_column'].'` = \''.$this->settings['maintenance_setting_name'].'\';';
+        if ($run) {
+            if (!Query::query($command)) {
+                throw new \RuntimeException('Failed to enable maintenance mode');
+            }
+
+            return true;
+        }
+
+        return $command;
     }
 
     /**
@@ -484,91 +762,6 @@ final class Commander
     }
 
     /**
-     * `OPTIMIZE` the table
-     *
-     * @param string $schema    Schema name
-     * @param string $table     Table name
-     * @param bool   $integrate Whether to generate commands to update library's tables
-     * @param bool   $run       Whether to run the commands or just return them
-     * @param bool   $no_skip   Whether to enforce statistics generation even if it's covered by regular `ANALYZE`. Used only for InnoDB tables.
-     *
-     * @return array|bool
-     */
-    public function optimize(string $schema, string $table, bool $integrate = false, bool $run = false, bool $no_skip = false): array|bool
-    {
-        $details = $this->getTableDetails($schema, $table);
-        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive)$/ui', $details['ENGINE']) !== 1) {
-            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
-        }
-        $commands = [];
-        if ($integrate) {
-            // Update statistics before optimization
-            $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
-                LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
-                SET `data_length_before`=`DATA_LENGTH`, `index_length_before`=`INDEX_LENGTH`, `data_free_before`=`DATA_FREE` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
-        }
-        if ($this->features['set_global']) {
-            // Ensure that we are not using fulltext_only mode
-            \array_push($commands, 'SET GLOBAL innodb_optimize_fulltext_only=0;', 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;', 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;');
-        } else {
-            $commands[] = /** @lang SQL */
-                'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;';
-        }
-        if ($integrate) {
-            $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables`
-                LEFT JOIN `information_schema`.`TABLES` ON `schema`=`TABLE_SCHEMA` AND `table`=`TABLE_NAME`
-                SET `data_length_after`=`DATA_LENGTH`, `index_length_after`=`INDEX_LENGTH`, `data_free_current`=`DATA_FREE`, `data_length_current`=`DATA_LENGTH`, `index_length_current`=`INDEX_LENGTH`, `data_free_after`=`DATA_FREE`, `optimize_date`=CURRENT_TIMESTAMP(6), `optimize`=0, `optimize_fulltext_date`=CURRENT_TIMESTAMP(6), `optimize_fulltext`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
-            // OPTIMIZE also implies ANALYZE for InnoDB tables
-            if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1) {
-                $commands[] = /** @lang SQL */
-                    'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `analyze_date`=CURRENT_TIMESTAMP(6), `analyze_rows`=`rows_current`, `analyze_checksum`=`checksum_current`, `analyze`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
-            }
-        }
-        if ($run) {
-            $this->runOptimize($schema, $table, $commands);
-        }
-        // InnoDB recreates table and then does ANALYZE, which does not include histograms by default
-        if (
-            (
-                $this->features['histogram']
-                || (
-                    $this->features['analyze_persistent']
-                    && !$this->features['skip_persistent']
-                    && !$no_skip
-                )
-            )
-            && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
-            &&
-            // We also need to check that `analyze_histogram` is enabled for the table in settings
-            Query::query('SELECT `analyze_histogram` FROM `'.$this->current_database.'`.`'.$this->prefix.'tables` WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\' AND `analyze_histogram`=1;', return: 'check')
-        ) {
-            $histogram = $this->histogram($schema, $table, $integrate, $run, $no_skip);
-            if (!$run) {
-                $commands = \array_merge($commands, $histogram);
-            }
-        }
-        // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
-        if (
-            $integrate
-            && $this->features['set_global']
-            && $details['has_fulltext']
-            && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
-        ) {
-            $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
-            if (!$run) {
-                $commands = \array_merge($commands, $fulltext);
-            }
-        }
-        if ($run) {
-            return true;
-        }
-
-        return $commands;
-    }
-
-    /**
      * Helper function to run OPTIMIZE-related commands
      *
      * @param string $schema   Schema name
@@ -589,170 +782,6 @@ final class Commander
                 Query::query($command);
             }
         }
-    }
-
-    /**
-     * Run FLUSH command if respective privileges are present
-     *
-     * @param bool $run Whether to run the command or just return it
-     *
-     * @return bool|string
-     */
-    public function flush(bool $run = false): bool|string
-    {
-        $command = '';
-        if ($this->features['mariadb']) {
-            if ($this->features['can_flush']) {
-                $command = /** @lang SQL */
-                    'FLUSH LOCAL HOSTS, QUERY CACHE, TABLE_STATISTICS, INDEX_STATISTICS, USER_STATISTICS;';
-            }
-        } elseif ($this->features['can_flush_optimizer']) {
-            $command = /** @lang SQL */
-                'FLUSH OPTIMIZER_COSTS;';
-        }
-        if ($command === '') {
-            return false;
-        }
-        if ($run) {
-            return Query::query($command);
-        }
-
-        return $command;
-    }
-
-    /**
-     * FULLTEXT-only OPTIMIZE for InnoDB tables
-     *
-     * @param string $schema    Schema name
-     * @param string $table     Table name
-     * @param bool   $integrate Whether to generate commands to update library's tables
-     * @param bool   $run       Whether to run the commands or just return them
-     *
-     * @return array|bool
-     */
-    public function fulltextOptimize(string $schema, string $table, bool $integrate = false, bool $run = false): bool|array
-    {
-        if (!$this->features['set_global']) {
-            throw new \UnexpectedValueException('Lacking `SET GLOBAL` permission');
-        }
-        $details = $this->getTableDetails($schema, $table);
-        if (\preg_match('/^(InnoDB)$/ui', $details['ENGINE']) !== 1) {
-            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support FULLTEXT-only OPTIMIZE');
-        }
-        if (!$details['has_fulltext']) {
-            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` does not have FULLTEXT indexes');
-        }
-        $commands = [
-            /** @lang SQL */
-            'SET GLOBAL innodb_optimize_fulltext_only=1;',
-            /** @lang SQL */
-            'SET GLOBAL innodb_ft_num_word_optimize=10000;',
-            /** @lang SQL */
-            'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;',
-            /** @lang SQL */
-            'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
-            /** @lang SQL */
-            'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
-        ];
-        if ($run) {
-            $this->runOptimize($schema, $table, $commands);
-        }
-        if ($integrate) {
-            $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `optimize_fulltext_date`=CURRENT_TIMESTAMP(6), `optimize_fulltext`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
-            if ($run) {
-                Query::query(\array_last($commands));
-            }
-            // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
-            $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
-            if (!$run) {
-                $commands = \array_merge($commands, $fulltext);
-            }
-        }
-        if ($run) {
-            return true;
-        }
-
-        return $commands;
-    }
-
-    /**
-     * Rebuild FULLTEXT indexes in a table
-     *
-     * @param string $schema    Schema name
-     * @param string $table     Table name
-     * @param bool   $integrate Whether to generate commands to update library's tables
-     * @param bool   $run       Whether to run the commands or just return them
-     *
-     * @return array|bool
-     */
-    public function fulltextRebuild(string $schema, string $table, bool $integrate = false, bool $run = false): bool|array
-    {
-        $details = $this->getTableDetails($schema, $table);
-        $commands = [];
-        if (\preg_match('/^(InnoDB|MyISAM|Aria|Mroonga)$/ui', $details['ENGINE']) !== 1) {
-            throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support OPTIMIZE');
-        }
-        // Get FULLTEXT indexes names
-        $indexes = Query::query('SELECT DISTINCT(`INDEX_NAME`) AS `INDEX_NAME` FROM `INFORMATION_SCHEMA`.`STATISTICS` WHERE `TABLE_SCHEMA` = :schema AND `TABLE_NAME` = :table AND `INDEX_TYPE`=\'FULLTEXT\';', [':schema' => $schema, ':table' => $table], return: 'column');
-        foreach ($indexes as $index) {
-            $commands[] = Manage::rebuildIndexQuery($schema, $table, $index, $run);
-        }
-        if ($integrate) {
-            $commands[] = /** @lang SQL */
-                'UPDATE `'.$this->current_database.'`.`'.$this->prefix.'tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(6), `fulltext_rebuild`=0 WHERE `schema`=\''.$schema.'\' AND `table`=\''.$table.'\';';
-            if ($run) {
-                Query::query(\array_last($commands));
-            }
-            // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
-            $fulltext = $this->updateFulltextDeleted($schema, $table, $run);
-            if (!$run) {
-                $commands = \array_merge($commands, $fulltext);
-            }
-        }
-        if ($run) {
-            return true;
-        }
-
-        return $commands;
-    }
-
-    /**
-     * Activate or deactivate maintenance mode
-     *
-     * @param bool $activate Activate or deactivate maintenance mode
-     * @param bool $run      Whether to run the command or just return it
-     *
-     * @return bool|string
-     */
-    public function maintenance(bool $activate = true, bool $run = false): bool|string
-    {
-        if (
-            empty($this->settings['maintenance_schema_name'])
-            || empty($this->settings['maintenance_table_name'])
-            || empty($this->settings['maintenance_setting_column'])
-            || empty($this->settings['maintenance_setting_name'])
-            || empty($this->settings['maintenance_value_column'])
-        ) {
-            // Consider success, since the feature is not set up
-            return false;
-        }
-        foreach ([$this->settings['maintenance_schema_name'], $this->settings['maintenance_table_name'], $this->settings['maintenance_setting_column'], $this->settings['maintenance_setting_name'], $this->settings['maintenance_value_column']] as $argument) {
-            if (!Sanitize::dbName($argument)) {
-                throw new \UnexpectedValueException('Invalid maintenance parameter detected');
-            }
-        }
-        $command = /** @lang SQL */
-            'UPDATE `'.$this->settings['maintenance_schema_name'].'`.`'.$this->settings['maintenance_table_name'].'` SET `'.$this->settings['maintenance_value_column'].'` = '.($activate ? '1' : '0').' WHERE `'.$this->settings['maintenance_setting_column'].'` = \''.$this->settings['maintenance_setting_name'].'\';';
-        if ($run) {
-            if (!Query::query($command)) {
-                throw new \RuntimeException('Failed to enable maintenance mode');
-            }
-
-            return true;
-        }
-
-        return $command;
     }
 
     /**

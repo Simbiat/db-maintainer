@@ -30,11 +30,115 @@ trait TraitForMaintainer
          */
         set {
             if (!Sanitize::dbName($value, true, 49)) {
-                throw new \UnexpectedValueException('Invalid database prefix');
+        throw new \UnexpectedValueException('Invalid database prefix');
             }
 
             $this->prefix = $value;
         }
+    }
+
+    /**
+     * Get library settings
+     *
+     * @return array
+     */
+    final public function getSettings(): array
+    {
+        $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix.'settings` WHERE `setting` NOT IN (\'version\')', return: 'pair');
+        // Convert to booleans
+        foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
+            $settings[$setting] = (bool) $settings[$setting];
+        }
+        // Get FULLTEXT settings
+        $innodb_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'innodb_ft_min_token_size\', \'innodb_ft_max_token_size\', \'innodb_ft_server_stopword_table\', \'innodb_ft_user_stopword_table\', \'innodb_ft_enable_stopword\', \'ngram_token_size\') ORDER BY `VARIABLE_NAME`;', return: 'value');
+        $myisam_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'ft_min_word_len\', \'ft_max_word_len\', \'ft_stopword_file\') ORDER BY `VARIABLE_NAME`;', return: 'value');
+        if (empty($settings['innodb_fulltext'])) {
+            $settings['innodb_fulltext'] = $innodb_fulltext;
+        }
+        if (empty($settings['myisam_fulltext'])) {
+            $settings['myisam_fulltext'] = $myisam_fulltext;
+        }
+        $settings['innodb_fulltext_current'] = $innodb_fulltext;
+        $settings['myisam_fulltext_current'] = $myisam_fulltext;
+
+        return $settings;
+    }
+
+    /**
+     * Get supported features.
+     *
+     * @return array
+     */
+    final public function getFeatures(): array
+    {
+        $features = [];
+        // Get database version
+        $version = Query::query('SELECT VERSION();', return: 'column')[0];
+        $features['mariadb'] = \mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false;
+        $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
+        // If the value is `never`, it means MariaDB does not use persistent statistics at all.
+        if (
+            \is_string($analyze_persistent)
+            && \strcasecmp($analyze_persistent, 'never') !== 0
+        ) {
+            $features['analyze_persistent'] = true;
+            // If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
+            $features['skip_persistent'] =
+                \strcasecmp($analyze_persistent, 'complementary') === 0
+                || \strcasecmp($analyze_persistent, 'preferably') === 0;
+        } else {
+            $features['analyze_persistent'] = false;
+            $features['skip_persistent'] = true;
+        }
+        // Check if histograms are supported. MySQL 8+.
+        if (
+            !$features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
+        ) {
+            $features['histogram'] = true;
+            $features['auto_histogram'] = \version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')
+                ? true
+                : false;
+        } else {
+            $features['histogram'] = false;
+            $features['auto_histogram'] = false;
+        }
+        // Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
+        $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
+        $features['file_per_table'] = \strcasecmp($innodb_file_per_table, 'ON') === 0;
+        // Check if INNODB Compression is supported. MariaDB 10.6+ only.
+        $features['page_compression'] =
+            $features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')
+            ? true
+            : false;
+        // Check if SET GLOBAL is possible
+        $features['set_global'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'SUPER\', \'SYSTEM_VARIABLES_ADMIN\');', return: 'count') > 0;
+        // Check if FLUSH is possible
+        $features['can_flush'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE`=\'RELOAD\';', return: 'count') > 0;
+        if (
+            !$features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
+        ) {
+            // We have MySQL 8 or newer
+            if ($features['can_flush']) {
+                $features['can_flush_optimizer'] = true;
+            } elseif (Query::query('SELECT COUNT(*) AS `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE `GRANTEE`=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'FLUSH_OPTIMIZER_COSTS\', \'FLUSH OPTIMIZER COSTS\');', return: 'count') > 0) {
+                $features['can_flush_optimizer'] = true;
+            } else {
+                $features['can_flush_optimizer'] = false;
+            }
+        } else {
+            $features['can_flush_optimizer'] = false;
+        }
+        // SEQUENCE engine supports CHECK in MariaDB since version 12
+        $features['sequence_check'] =
+            $features['mariadb']
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')
+            ? true
+            : false;
+
+        return $features;
     }
 
     /**
@@ -81,118 +185,18 @@ trait TraitForMaintainer
     /**
      * Helper function to normalize table name(s)
      *
-     * @param string|array $table
+     * @param string|array<string> $table
      *
-     * @return array|string[]
+     * @return array<string>
      */
     private function normalizeTable(string|array $table = []): array
     {
         if (\is_string($table)) {
-            $table = Sanitize::whiteString($table) ? [] : [$table];
+            $table = Sanitize::whiteString($table)
+                ? []
+                : [$table];
         }
 
         return $table;
     }
-
-    /**
-     * Get library settings
-     *
-     * @return array
-     */
-    public function getSettings(): array
-    {
-        $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix.'settings` WHERE `setting` NOT IN (\'version\')', return: 'pair');
-        // Convert to booleans
-        foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
-            $settings[$setting] = (bool) $settings[$setting];
-        }
-        // Get FULLTEXT settings
-        $innodb_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'innodb_ft_min_token_size\', \'innodb_ft_max_token_size\', \'innodb_ft_server_stopword_table\', \'innodb_ft_user_stopword_table\', \'innodb_ft_enable_stopword\', \'ngram_token_size\') ORDER BY `VARIABLE_NAME`;', return: 'value');
-        $myisam_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'ft_min_word_len\', \'ft_max_word_len\', \'ft_stopword_file\') ORDER BY `VARIABLE_NAME`;', return: 'value');
-        if (empty($settings['innodb_fulltext'])) {
-            $settings['innodb_fulltext'] = $innodb_fulltext;
-        }
-        if (empty($settings['myisam_fulltext'])) {
-            $settings['myisam_fulltext'] = $myisam_fulltext;
-        }
-        $settings['innodb_fulltext_current'] = $innodb_fulltext;
-        $settings['myisam_fulltext_current'] = $myisam_fulltext;
-
-        return $settings;
-    }
-
-    /**
-     * Get supported features.
-     *
-     * @return array
-     */
-    public function getFeatures(): array
-    {
-        $features = [];
-        // Get database version
-        $version = Query::query('SELECT VERSION();', return: 'column')[0];
-        $features['mariadb'] = \mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false ? true : false;
-        $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
-        // If the value is `never`, it means MariaDB does not use persistent statistics at all.
-        if (
-            \is_string($analyze_persistent)
-            && \strcasecmp($analyze_persistent, 'never') !== 0
-        ) {
-            $features['analyze_persistent'] = true;
-            // If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
-            $features['skip_persistent'] =
-                \strcasecmp($analyze_persistent, 'complementary') === 0
-                || \strcasecmp($analyze_persistent, 'preferably') === 0
-             ? true : false;
-        } else {
-            $features['analyze_persistent'] = false;
-            $features['skip_persistent'] = true;
-        }
-        // Check if histograms are supported. MySQL 8+.
-        if (
-            !$features['mariadb']
-            && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
-        ) {
-            $features['histogram'] = true;
-            $features['auto_histogram'] = \version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge') ? true : false;
-        } else {
-            $features['histogram'] = false;
-            $features['auto_histogram'] = false;
-        }
-        // Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
-        $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
-        $features['file_per_table'] = \strcasecmp($innodb_file_per_table, 'ON') === 0 ? true : false;
-        // Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        $features['page_compression'] =
-            $features['mariadb']
-            && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')
-         ? true : false;
-        // Check if SET GLOBAL is possible
-        $features['set_global'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'SUPER\', \'SYSTEM_VARIABLES_ADMIN\');', return: 'count') > 0 ? true : false;
-        // Check if FLUSH is possible
-        $features['can_flush'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE`=\'RELOAD\';', return: 'count') > 0 ? true : false;
-        if (
-            !$features['mariadb']
-            && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
-        ) {
-            // We have MySQL 8 or newer
-            if ($features['can_flush']) {
-                $features['can_flush_optimizer'] = true;
-            } elseif (Query::query('SELECT COUNT(*) AS `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE `GRANTEE`=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'FLUSH_OPTIMIZER_COSTS\', \'FLUSH OPTIMIZER COSTS\');', return: 'count') > 0) {
-                $features['can_flush_optimizer'] = true;
-            } else {
-                $features['can_flush_optimizer'] = false;
-            }
-        } else {
-            $features['can_flush_optimizer'] = false;
-        }
-        // SEQUENCE engine supports CHECK in MariaDB since version 12
-        $features['sequence_check'] =
-            $features['mariadb']
-            && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')
-         ? true : false;
-
-        return $features;
-    }
-
 }

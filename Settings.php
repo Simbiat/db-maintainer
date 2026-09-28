@@ -323,21 +323,36 @@ final class Settings
             }
         }
         $queries = [];
-        $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_schema_name\';', [
-            ':value' => [$schema ?? null, $schema === null ? 'null' : 'string'],
-        ],];
-        $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_table_name\';', [
-            ':value' => [$table ?? null, $table === null ? 'null' : 'string'],
-        ],];
-        $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_column\';', [
-            ':value' => [$setting_column ?? null, $setting_column === null ? 'null' : 'string'],
-        ],];
-        $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_name\';', [
-            ':value' => [$setting_name ?? null, $setting_name === null ? 'null' : 'string'],
-        ],];
-        $queries[] = ['UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_value_column\';', [
-            ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string'],
-        ],];
+        $queries[] = [
+            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_schema_name\';',
+            [
+                ':value' => [$schema ?? null, $schema === null ? 'null' : 'string'],
+            ],
+        ];
+        $queries[] = [
+            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_table_name\';',
+            [
+                ':value' => [$table ?? null, $table === null ? 'null' : 'string'],
+            ],
+        ];
+        $queries[] = [
+            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_column\';',
+            [
+                ':value' => [$setting_column ?? null, $setting_column === null ? 'null' : 'string'],
+            ],
+        ];
+        $queries[] = [
+            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_name\';',
+            [
+                ':value' => [$setting_name ?? null, $setting_name === null ? 'null' : 'string'],
+            ],
+        ];
+        $queries[] = [
+            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_value_column\';',
+            [
+                ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string'],
+            ],
+        ];
         Query::query($queries);
 
         return $this;

@@ -272,7 +272,8 @@ final class Analyzer
         // Check if fulltext rebuild is required (changes in settings detected) for any tables and update FULLTEXT settings after that
         $fulltext_rebuild = [];
         if ($this->settings['innodb_fulltext_current'] !== $this->settings['innodb_fulltext']) {
-            $fulltext_rebuild[] = /** @lang SQL */
+            /** @lang SQL */
+            $fulltext_rebuild[] =
                 'UPDATE `'.$this->prefix.'tables`
                 SET `fulltext_rebuild`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                 WHERE
@@ -284,7 +285,8 @@ final class Analyzer
                     `fulltext_rebuild`=0';
         }
         if ($this->settings['myisam_fulltext_current'] !== $this->settings['myisam_fulltext']) {
-            $fulltext_rebuild[] = /** @lang SQL */
+            /** @lang SQL */
+            $fulltext_rebuild[] =
                 'UPDATE `'.$this->prefix.'tables`
                 SET `fulltext_rebuild`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                 WHERE
@@ -424,122 +426,6 @@ final class Analyzer
     }
 
     /**
-     * Actual processing loop for `autoProcess()`.
-     * Sounds funny, but the main reason for moving it out of the main function was that Psalm was timing-out when processing it within the `autoProcess()`
-     *
-     * @param array                                  $table_actions Array with table details and actions
-     * @param \Simbiat\Database\Maintainer\Commander $commander     Commander object to avoid recreation
-     *
-     * @return array
-     */
-    private function processLoop(array $table_actions, Commander $commander): array
-    {
-        $results = [];
-        if (
-            $table_actions['repair']
-            && $this->settings['repair_auto_run']
-        ) {
-            try {
-                $results['repair'] = $commander->repair($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['repair'] = $exception->getMessage();
-            }
-        } else {
-            $results['repair'] = false;
-        }
-        if (
-            $table_actions['check']
-            && $table_actions['check_auto_run']
-        ) {
-            try {
-                $results['check'] = $commander->check($table_actions['schema'], $table_actions['table'], true, true, auto_repair: $this->settings['repair_auto_run']);
-            } catch (\Throwable $exception) {
-                $results['check'] = $exception->getMessage();
-            }
-        } else {
-            $results['check'] = false;
-        }
-        if (
-            $table_actions['compress']
-            && $this->settings['compress_auto_run']
-        ) {
-            try {
-                $results['compress'] = $commander->compress($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['compress'] = $exception->getMessage();
-            }
-        } else {
-            $results['compress'] = false;
-        }
-        if (
-            $table_actions['optimize']
-            && $table_actions['optimize_auto_run']
-        ) {
-            try {
-                $results['optimize'] = $commander->optimize($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['optimize'] = $exception->getMessage();
-            }
-        } else {
-            $results['optimize'] = false;
-        }
-        if (
-            $table_actions['analyze']
-            && $table_actions['analyze_histogram']
-            && $table_actions['analyze_auto_run']
-        ) {
-            try {
-                $results['analyze_histogram'] = $commander->histogram($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['analyze_histogram'] = $exception->getMessage();
-            }
-        } else {
-            $results['analyze_histogram'] = false;
-        }
-        if (
-            $table_actions['analyze']
-            && $table_actions['analyze_auto_run']
-        ) {
-            try {
-                $results['analyze'] = $commander->analyze($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['analyze'] = $exception->getMessage();
-            }
-        } else {
-            $results['analyze'] = false;
-        }
-        if (
-            $table_actions['fulltext_rebuild']
-            && !$table_actions['optimize']
-            && $table_actions['fulltext_rebuild_auto_run']
-        ) {
-            try {
-                $results['fulltext_rebuild'] = $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['fulltext_rebuild'] = $exception->getMessage();
-            }
-        } else {
-            $results['fulltext_rebuild'] = false;
-        }
-        if (
-            $table_actions['optimize_fulltext']
-            && !$table_actions['optimize']
-            && $table_actions['fulltext_rebuild']
-            && $table_actions['optimize_auto_run']
-        ) {
-            try {
-                $results['optimize_fulltext'] = $commander->fulltextOptimize($table_actions['schema'], $table_actions['table'], true, true);
-            } catch (\Throwable $exception) {
-                $results['optimize_fulltext'] = $exception->getMessage();
-            }
-        } else {
-            $results['optimize_fulltext'] = false;
-        }
-
-        return $results;
-    }
-
-    /**
      * Suggest actions for table(s) and get commands for their manual processing as an array of phases. Will also include commands for actions that are not allowed to auto-run
      *
      * @param string       $schema    Schema name
@@ -641,50 +527,6 @@ final class Analyzer
         }
 
         return $commands;
-    }
-
-    /**
-     * Helper function to add commands to a phase
-     *
-     * @param array  $commands Array to update
-     * @param string $schema   Schema to add
-     * @param string $table    Table to add
-     * @param string $phase    Phase to add to
-     * @param array  $to_add   Commands to add
-     *
-     * @return void
-     */
-    private function addCommandsToPhase(array &$commands, string $schema, string $table, string $phase, array $to_add): void
-    {
-        // Add keys if missing
-        if (!\array_key_exists($schema, $commands[$phase])) {
-            $commands[$phase][$schema] = [];
-        }
-        if (!\array_key_exists($table, $commands[$phase][$schema])) {
-            $commands[$phase][$schema][$table] = [];
-        }
-        if (
-            $phase === 'optimize'
-            || $phase === 'fulltext'
-        ) {
-            foreach ($to_add as $key => $command) {
-                // Setting of innodb_ft_aux_table and respective updates cannot be parallelized, so need to go to a separate phase
-                if (
-                    \str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table')
-                    || \preg_match('/^UPDATE `[^`]+`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`/ui', $command) === 1
-                ) {
-                    $commands['stats'][] = $command;
-                    unset($to_add[$key]);
-
-                    continue;
-                }
-                // Remove `SET GLOBAL` commands, since not required in phased build
-                if (\str_starts_with($command, 'SET GLOBAL')) {
-                    unset($to_add[$key]);
-                }
-            }
-        }
-        $commands[$phase][$schema][$table] = \array_merge($commands[$phase][$schema][$table], $to_add);
     }
 
     /**
@@ -803,9 +645,9 @@ final class Analyzer
         // Delete non-existent old tables
         Query::query(
             [
-            'DELETE FROM `'.$this->prefix.'tables` WHERE `schema`=:schema AND (`schema`, `table`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`=:schema);',
-            'DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
-            'DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
+                'DELETE FROM `'.$this->prefix.'tables` WHERE `schema`=:schema AND (`schema`, `table`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`=:schema);',
+                'DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
+                'DELETE FROM `'.$this->prefix.'columns_exclude` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
             ],
             [':schema' => $schema],
         );
@@ -849,7 +691,7 @@ final class Analyzer
         try {
             Query::query(
                 'UPDATE `'.$this->prefix.'tables`
-                                LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
+                               LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
                                 SET `'.$this->prefix.'tables`.`rows_current` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`n_rows`, `'.$this->prefix.'tables`.`rows_current`),
                                     `'.$this->prefix.'tables`.`update_time` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`last_update`, `'.$this->prefix.'tables`.`update_time`)
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema'.($table === [] ? '' : ' AND `'.$this->prefix.'tables`.`table` IN (:table)').';',
@@ -907,7 +749,9 @@ final class Analyzer
                 return: 'all',
             ) as $data
         ) {
-            $checksum = empty($data['CHECKSUM']) ? (string) Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value') : $data['CHECKSUM'];
+            $checksum = empty($data['CHECKSUM'])
+                ? (string) Query::query('CHECKSUM TABLE `'.$schema.'`.`'.$data['TABLE_NAME'].'` EXTENDED;', fetch_argument: 1, return: 'value')
+                : $data['CHECKSUM'];
             if (Sanitize::whiteString($checksum)) {
                 continue;
             }
@@ -915,13 +759,173 @@ final class Analyzer
             try {
                 Query::query(
                     'UPDATE `'.$this->prefix.'tables`
-								SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
-								WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
+                                SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
+                                WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
                     [':schema' => $schema, ':table' => $data['TABLE_NAME'], ':checksum' => $checksum],
                 );
             } catch (\Throwable) {
                 // Do nothing, not critical.
             }
         }
+    }
+
+    /**
+     * Actual processing loop for `autoProcess()`.
+     * Sounds funny, but the main reason for moving it out of the main function was that Psalm was timing-out when processing it within the `autoProcess()`
+     *
+     * @param array                                  $table_actions Array with table details and actions
+     * @param \Simbiat\Database\Maintainer\Commander $commander     Commander object to avoid recreation
+     *
+     * @return array
+     */
+    private function processLoop(array $table_actions, Commander $commander): array
+    {
+        $results = [];
+        if (
+            $table_actions['repair']
+            && $this->settings['repair_auto_run']
+        ) {
+            try {
+                $results['repair'] = $commander->repair($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['repair'] = $exception->getMessage();
+            }
+        } else {
+            $results['repair'] = false;
+        }
+        if (
+            $table_actions['check']
+            && $table_actions['check_auto_run']
+        ) {
+            try {
+                $results['check'] = $commander->check($table_actions['schema'], $table_actions['table'], true, true, auto_repair: $this->settings['repair_auto_run']);
+            } catch (\Throwable $exception) {
+                $results['check'] = $exception->getMessage();
+            }
+        } else {
+            $results['check'] = false;
+        }
+        if (
+            $table_actions['compress']
+            && $this->settings['compress_auto_run']
+        ) {
+            try {
+                $results['compress'] = $commander->compress($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['compress'] = $exception->getMessage();
+            }
+        } else {
+            $results['compress'] = false;
+        }
+        if (
+            $table_actions['optimize']
+            && $table_actions['optimize_auto_run']
+        ) {
+            try {
+                $results['optimize'] = $commander->optimize($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['optimize'] = $exception->getMessage();
+            }
+        } else {
+            $results['optimize'] = false;
+        }
+        if (
+            $table_actions['analyze']
+            && $table_actions['analyze_histogram']
+            && $table_actions['analyze_auto_run']
+        ) {
+            try {
+                $results['analyze_histogram'] = $commander->histogram($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['analyze_histogram'] = $exception->getMessage();
+            }
+        } else {
+            $results['analyze_histogram'] = false;
+        }
+        if (
+            $table_actions['analyze']
+            && $table_actions['analyze_auto_run']
+        ) {
+            try {
+                $results['analyze'] = $commander->analyze($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['analyze'] = $exception->getMessage();
+            }
+        } else {
+            $results['analyze'] = false;
+        }
+        if (
+            $table_actions['fulltext_rebuild']
+            && !$table_actions['optimize']
+            && $table_actions['fulltext_rebuild_auto_run']
+        ) {
+            try {
+                $results['fulltext_rebuild'] = $commander->fulltextRebuild($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['fulltext_rebuild'] = $exception->getMessage();
+            }
+        } else {
+            $results['fulltext_rebuild'] = false;
+        }
+        if (
+            $table_actions['optimize_fulltext']
+            && !$table_actions['optimize']
+            && $table_actions['fulltext_rebuild']
+            && $table_actions['optimize_auto_run']
+        ) {
+            try {
+                $results['optimize_fulltext'] = $commander->fulltextOptimize($table_actions['schema'], $table_actions['table'], true, true);
+            } catch (\Throwable $exception) {
+                $results['optimize_fulltext'] = $exception->getMessage();
+            }
+        } else {
+            $results['optimize_fulltext'] = false;
+        }
+
+        return $results;
+    }
+
+    /**
+     * Helper function to add commands to a phase
+     *
+     * @param array  $commands Array to update
+     * @param string $schema   Schema to add
+     * @param string $table    Table to add
+     * @param string $phase    Phase to add to
+     * @param array  $to_add   Commands to add
+     *
+     * @return void
+     */
+    private function addCommandsToPhase(array &$commands, string $schema, string $table, string $phase, array $to_add): void
+    {
+        // Add keys if missing
+        if (!\array_key_exists($schema, $commands[$phase])) {
+            $commands[$phase][$schema] = [];
+        }
+        if (!\array_key_exists($table, $commands[$phase][$schema])) {
+            $commands[$phase][$schema][$table] = [];
+        }
+        if (
+            $phase === 'optimize'
+            || $phase === 'fulltext'
+        ) {
+            foreach ($to_add as $key => $command) {
+                // Setting of innodb_ft_aux_table and respective updates cannot be parallelized, so need to go to a separate phase
+                if (
+                    \str_starts_with($command, 'SET GLOBAL innodb_ft_aux_table')
+                    || \preg_match('/^UPDATE `[^`]+`.`'.$this->prefix.'tables` SET `optimize_fulltext_deleted`/ui', $command) === 1
+                ) {
+                    $commands['stats'][] = $command;
+                    unset($to_add[$key]);
+
+                    continue;
+                }
+                // Remove `SET GLOBAL` commands, since not required in phased build
+                if (\str_starts_with($command, 'SET GLOBAL')) {
+                    unset($to_add[$key]);
+                }
+            }
+        }
+        $commands[$phase][$schema][$table] = \array_merge($commands[$phase][$schema][$table], $to_add);
     }
 }
