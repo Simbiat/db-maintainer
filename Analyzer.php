@@ -9,33 +9,33 @@ use Simbiat\Database\Query;
 use Simbiat\StringHelpers\Sanitize;
 
 /**
- * Class to analyze database tables and suggest commands to run to maintain them
+ * Class to analyze database tables and suggest commands to run to maintain them.
  */
 final class Analyzer
 {
     use TraitForMaintainer;
 
     /**
-     * Library settings
+     * Library settings.
      *
      * @var array
      */
     private array $settings;
 
     /**
-     * List of supported features
+     * List of supported features.
      *
      * @var array
      */
     private array $features;
 
     /**
-     * Class constructor
+     * Class constructor.
      *
-     * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     * @param null|\PDO $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
-    public function __construct(\PDO|null $dbh = null, string $prefix = 'maintainer__')
+    public function __construct(?\PDO $dbh = null, string $prefix = 'maintainer__')
     {
         $this->init($dbh, $prefix);
         // Get settings
@@ -48,11 +48,11 @@ final class Analyzer
      * Analyze tables to check if running a maintenance task if recommended.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Optional table name(s)
+     * @param array|string $table  Optional table name(s)
      *
      * @return array
      */
-    public function suggest(string $schema, string|array $table = []): array
+    public function suggest(string $schema, array|string $table = []): array
     {
         if (\is_string($table)) {
             $table = [$table];
@@ -272,9 +272,9 @@ final class Analyzer
         // Check if fulltext rebuild is required (changes in settings detected) for any tables and update FULLTEXT settings after that
         $fulltext_rebuild = [];
         if ($this->settings['innodb_fulltext_current'] !== $this->settings['innodb_fulltext']) {
-            /** @lang SQL */
-            $fulltext_rebuild[] =
-                'UPDATE `'.$this->prefix.'tables`
+            /* @lang SQL */
+            $fulltext_rebuild[]
+                = 'UPDATE `'.$this->prefix.'tables`
                 SET `fulltext_rebuild`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                 WHERE
                     `schema`=:schema'.$where_table_in.' AND
@@ -285,9 +285,9 @@ final class Analyzer
                     `fulltext_rebuild`=0';
         }
         if ($this->settings['myisam_fulltext_current'] !== $this->settings['myisam_fulltext']) {
-            /** @lang SQL */
-            $fulltext_rebuild[] =
-                'UPDATE `'.$this->prefix.'tables`
+            /* @lang SQL */
+            $fulltext_rebuild[]
+                = 'UPDATE `'.$this->prefix.'tables`
                 SET `fulltext_rebuild`=1, `analyzed`=CURRENT_TIMESTAMP(6)
                 WHERE
                     `schema`=:schema'.$where_table_in.' AND
@@ -356,14 +356,14 @@ final class Analyzer
     }
 
     /**
-     * Suggest actions for table(s) and auto-process them, if applicable
+     * Suggest actions for table(s) and auto-process them, if applicable.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Optional table name(s)
+     * @param array|string $table  Optional table name(s)
      *
      * @return array
      */
-    public function autoProcess(string $schema, string|array $table = []): array
+    public function autoProcess(string $schema, array|string $table = []): array
     {
         if (\is_string($table)) {
             $table = [$table];
@@ -387,9 +387,9 @@ final class Analyzer
         if ($this->features['set_global']) {
             try {
                 $results['maintainer_general']['fulltext_settings_reset'] = Query::query([
-                    /** @lang SQL */ 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
-                    /** @lang SQL */ 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
-                    /** @lang SQL */ 'SET GLOBAL innodb_ft_aux_table=NULL;',
+                    /* @lang SQL */ 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
+                    /* @lang SQL */ 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
+                    /* @lang SQL */ 'SET GLOBAL innodb_ft_aux_table=NULL;',
                 ]);
             } catch (\Throwable $exception) {
                 $results['maintainer_general']['fulltext_settings_reset'] = $exception->getMessage();
@@ -407,6 +407,7 @@ final class Analyzer
         } else {
             $results['maintainer_general']['flush'] = false;
         }
+
         // Stop maintenance mode
         try {
             $results['maintainer_general']['maintenance_end'] = $commander->maintenance(false, true);
@@ -426,15 +427,15 @@ final class Analyzer
     }
 
     /**
-     * Suggest actions for table(s) and get commands for their manual processing as an array of phases. Will also include commands for actions that are not allowed to auto-run
+     * Suggest actions for table(s) and get commands for their manual processing as an array of phases. Will also include commands for actions that are not allowed to auto-run.
      *
      * @param string       $schema    Schema name
-     * @param string|array $table     Optional table name(s)
+     * @param array|string $table     Optional table name(s)
      * @param bool         $integrate Whether to include commands to update library's tables
      *
      * @return array
      */
-    public function getCommands(string $schema, string|array $table = [], bool $integrate = false): array
+    public function getCommands(string $schema, array|string $table = [], bool $integrate = false): array
     {
         if (\is_string($table)) {
             $table = [$table];
@@ -459,11 +460,11 @@ final class Analyzer
         if ($this->features['set_global']) {
             // `reset` phase includes only maintenance command if any
             $commands['reset'] = [
-                /** @lang SQL */
+                /* @lang SQL */
                 'SET GLOBAL innodb_optimize_fulltext_only=DEFAULT;',
-                /** @lang SQL */
+                /* @lang SQL */
                 'SET GLOBAL innodb_ft_num_word_optimize=DEFAULT;',
-                /** @lang SQL */
+                /* @lang SQL */
                 'SET GLOBAL innodb_ft_aux_table=NULL;',
             ];
         }
@@ -512,15 +513,15 @@ final class Analyzer
             // Populate `pre_optimize` and `pre_fulltext` phases only if `optimize` and `fulltext` have commands in them
             if ($commands['optimize'] !== []) {
                 $commands['pre_optimize'] = [
-                    /** @lang SQL */
+                    /* @lang SQL */
                     'SET GLOBAL innodb_optimize_fulltext_only=0;',
                 ];
             }
             if ($commands['fulltext'] !== []) {
                 $commands['pre_fulltext'] = [
-                    /** @lang SQL */
+                    /* @lang SQL */
                     'SET GLOBAL innodb_optimize_fulltext_only=1;',
-                    /** @lang SQL */
+                    /* @lang SQL */
                     'SET GLOBAL innodb_ft_num_word_optimize=10000;',
                 ];
             }
@@ -533,12 +534,12 @@ final class Analyzer
      * Suggest actions for table(s) and get commands for their manual processing as a flat array. Will also include commands for actions that are not allowed to auto-run.
      *
      * @param string       $schema    Schema name
-     * @param string|array $table     Optional table name(s)
+     * @param array|string $table     Optional table name(s)
      * @param bool         $integrate Whether to include commands to update library's tables
      *
      * @return array
      */
-    public function getCommandsFlat(string $schema, string|array $table = [], bool $integrate = false): array
+    public function getCommandsFlat(string $schema, array|string $table = [], bool $integrate = false): array
     {
         $commands = $this->getCommands($schema, $table, $integrate);
 
@@ -550,12 +551,12 @@ final class Analyzer
      *
      * @param string       $path      Path to save the files. Recommended to use a dedicated folder.
      * @param string       $schema    Schema name
-     * @param string|array $table     Optional table name(s)
+     * @param array|string $table     Optional table name(s)
      * @param bool         $integrate Whether to include commands to update library's tables
      *
      * @return bool
      */
-    public function writeCommandsToFiles(string $path, string $schema, string|array $table = [], bool $integrate = false): bool
+    public function writeCommandsToFiles(string $path, string $schema, array|string $table = [], bool $integrate = false): bool
     {
         if (Sanitize::whiteString($path)) {
             throw new \UnexpectedValueException('Empty path provided');
@@ -568,7 +569,7 @@ final class Analyzer
         }
         if (
             !\is_dir($path)
-            && !\mkdir($path, 0777, true)
+            && !\mkdir($path, recursive: true)
             && !\is_dir($path)
         ) {
             throw new \UnexpectedValueException('Failed to create directory `'.$path.'`');
@@ -610,7 +611,7 @@ final class Analyzer
             };
             if (
                 !\is_dir($directory)
-                && !\mkdir($directory, 0777, true)
+                && !\mkdir($directory, recursive: true)
                 && !\is_dir($directory)
             ) {
                 throw new \UnexpectedValueException('Failed to create directory `'.$directory.'`');
@@ -626,14 +627,14 @@ final class Analyzer
     }
 
     /**
-     * Get tables' information for the schema
+     * Get tables' information for the schema.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Optional table name(s)
+     * @param array|string $table  Optional table name(s)
      *
      * @return void
      */
-    public function updateTables(string $schema, string|array $table = []): void
+    public function updateTables(string $schema, array|string $table = []): void
     {
         if (\is_string($table)) {
             $table = [$table];
@@ -687,6 +688,7 @@ final class Analyzer
                                     `check_date`=IF(values(`check_date`) IS NOT NULL, GREATEST(`check_date`, values(`check_date`)), `check_date`);',
             [':schema' => $schema, ':table' => [$table, 'in', 'string']],
         );
+
         // Try to get tables data from InnoDB persistent statistics
         try {
             Query::query(
@@ -709,8 +711,7 @@ final class Analyzer
                                         WHERE `schema`=:schema'.$where_table_in.' AND `engine`=\'InnoDB\' AND `has_fulltext`=1;',
                     [':schema' => $schema, ':table' => [$table, 'in', 'string']],
                     return: 'all',
-                )
-                as $data
+                ) as $data
             ) {
                 /* @noinspection UnusedFunctionResultInspection Not needed in this case */
                 $commander->updateFulltextDeleted($schema, $data['table'], true);
@@ -723,10 +724,10 @@ final class Analyzer
                                     WHERE `schema`=:schema'.$where_table_in.' AND `only_if_changed`=1 AND `exact_rows`=1 AND (`rows_date` IS NULL OR DATE(`rows_date`) < CURRENT_DATE()) AND `threshold_rows_delta`>0 ORDER BY `data_length_current`;',
                 [':schema' => $schema, ':table' => [$table, 'in', 'string']],
                 return: 'all',
-            )
-            as $data
+            ) as $data
         ) {
             $count = (string) Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
+
             try {
                 Query::query(
                     'UPDATE `'.$this->prefix.'tables`
@@ -771,7 +772,7 @@ final class Analyzer
 
     /**
      * Actual processing loop for `autoProcess()`.
-     * Sounds funny, but the main reason for moving it out of the main function was that Psalm was timing-out when processing it within the `autoProcess()`
+     * Sounds funny, but the main reason for moving it out of the main function was that Psalm was timing-out when processing it within the `autoProcess()`.
      *
      * @param array                                  $table_actions Array with table details and actions
      * @param \Simbiat\Database\Maintainer\Commander $commander     Commander object to avoid recreation
@@ -886,7 +887,7 @@ final class Analyzer
     }
 
     /**
-     * Helper function to add commands to a phase
+     * Helper function to add commands to a phase.
      *
      * @param array  $commands Array to update
      * @param string $schema   Schema to add

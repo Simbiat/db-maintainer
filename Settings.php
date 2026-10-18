@@ -9,19 +9,19 @@ use Simbiat\Database\Query;
 use Simbiat\StringHelpers\Sanitize;
 
 /**
- * Class to change settings used by the Maintainer library
+ * Class to change settings used by the Maintainer library.
  */
 final class Settings
 {
     use TraitForMaintainer;
 
     /**
-     * Class constructor
+     * Class constructor.
      *
-     * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     * @param null|\PDO $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
-    public function __construct(\PDO|null $dbh = null, string $prefix = 'maintainer__')
+    public function __construct(?\PDO $dbh = null, string $prefix = 'maintainer__')
     {
         $this->init($dbh, $prefix);
     }
@@ -30,13 +30,13 @@ final class Settings
      * Enable or disable suggestion of certain action types.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table  Table name(s). If empty string or array - will update all tables.
      * @param string       $action Action type
      * @param bool         $flag   Enable flag
      *
      * @return $this
      */
-    public function setSuggest(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'compress', 'optimize'])] string $action, bool $flag): self
+    public function setSuggest(string $schema, array|string $table, #[ExpectedValues(['analyze', 'check', 'compress', 'optimize'])] string $action, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
@@ -57,13 +57,13 @@ final class Settings
      * Enable or disable automatic run of certain actio types.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table  Table name(s). If empty string or array - will update all tables.
      * @param string       $action Action name
      * @param bool         $flag   Enable flag
      *
      * @return $this
      */
-    public function setRun(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'fulltext_rebuild', 'optimize'])] string $action, bool $flag): self
+    public function setRun(string $schema, array|string $table, #[ExpectedValues(['analyze', 'check', 'fulltext_rebuild', 'optimize'])] string $action, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
@@ -84,13 +84,13 @@ final class Settings
      * Set the number of days to wait since the previous run of an `$action`. Unless the designated amount of time has passed, the action will not be suggested for the table.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table  Table name(s). If empty string or array - will update all tables.
      * @param string       $action Action name
      * @param int          $days   Number of days
      *
      * @return $this
      */
-    public function setDays(string $schema, string|array $table, #[ExpectedValues(['analyze', 'check', 'optimize'])] string $action, int $days): self
+    public function setDays(string $schema, array|string $table, #[ExpectedValues(['analyze', 'check', 'optimize'])] string $action, int $days): self
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
@@ -114,13 +114,13 @@ final class Settings
      * Enable or disable various options to fine-tune the per-table behavior of the library.
      *
      * @param string       $schema  Schema name
-     * @param string|array $table   Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table   Table name(s). If empty string or array - will update all tables.
      * @param string       $setting Setting name
      * @param bool         $flag    Enable flag
      *
      * @return $this
      */
-    public function setTableFineTune(string $schema, string|array $table, #[ExpectedValues(['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'])] string $setting, bool $flag): self
+    public function setTableFineTune(string $schema, array|string $table, #[ExpectedValues(['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'])] string $setting, bool $flag): self
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
@@ -141,12 +141,12 @@ final class Settings
      * Set a threshold for fragmentation of table data. If the current value is equal or greater - table will be suggested for OPTIMIZE.
      *
      * @param string       $schema    Schema name
-     * @param string|array $table     Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table     Table name(s). If empty string or array - will update all tables.
      * @param float        $threshold Fragmentation threshold
      *
      * @return $this
      */
-    public function setThresholdFragmentation(string $schema, string|array $table = [], float $threshold = 10.0): self
+    public function setThresholdFragmentation(string $schema, array|string $table = [], float $threshold = 10.0): self
     {
         $this->schemaTableChecker($schema, $table);
         // Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -171,12 +171,12 @@ final class Settings
      * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for CHECK and ANALYZE commands.
      *
      * @param string       $schema    Schema name
-     * @param string|array $table     Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table     Table name(s). If empty string or array - will update all tables.
      * @param int          $threshold Rows threshold
      *
      * @return $this
      */
-    public function setThresholdRowsDelta(string $schema, string|array $table = [], int $threshold = 10000): self
+    public function setThresholdRowsDelta(string $schema, array|string $table = [], int $threshold = 10000): self
     {
         $this->schemaTableChecker($schema, $table);
         // Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -197,12 +197,12 @@ final class Settings
      * Set a threshold for number rows in the INNODB_FT_DELETED table to suggest FULLTEXT-only OPTIMIZE.
      *
      * @param string       $schema    Schema name
-     * @param string|array $table     Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table     Table name(s). If empty string or array - will update all tables.
      * @param int          $threshold Rows threshold
      *
      * @return $this
      */
-    public function setOptimizeDeletedThreshold(string $schema, string|array $table = [], int $threshold = 10000): self
+    public function setOptimizeDeletedThreshold(string $schema, array|string $table = [], int $threshold = 10000): self
     {
         $this->schemaTableChecker($schema, $table);
         // Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -223,12 +223,12 @@ final class Settings
      * Set a threshold for delta for the number of rows in the table compared to the last run. If the current value is equal or greater - table will be suggested for CHECK and ANALYZE commands.
      *
      * @param string       $schema    Schema name
-     * @param string|array $table     Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table     Table name(s). If empty string or array - will update all tables.
      * @param float        $threshold Rows threshold
      *
      * @return $this
      */
-    public function setThresholdSizeChange(string $schema, string|array $table = [], float $threshold = 25.00): self
+    public function setThresholdSizeChange(string $schema, array|string $table = [], float $threshold = 25.00): self
     {
         $this->schemaTableChecker($schema, $table);
         // Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -250,15 +250,15 @@ final class Settings
     }
 
     /**
-     * Set a number of buckets for histograms when using ANALYZE in MySQL 8+
+     * Set a number of buckets for histograms when using ANALYZE in MySQL 8+.
      *
      * @param string       $schema  Schema name
-     * @param string|array $table   Table name(s). If empty string or array - will update all tables.
+     * @param array|string $table   Table name(s). If empty string or array - will update all tables.
      * @param int          $buckets Number of buckets for histograms
      *
      * @return $this
      */
-    public function setBuckets(string $schema, string|array $table = [], int $buckets = 100): self
+    public function setBuckets(string $schema, array|string $table = [], int $buckets = 100): self
     {
         $this->schemaTableChecker($schema, $table);
         // Negative values do not make sense in this case, so reverting them to 0 for consistency
@@ -304,11 +304,11 @@ final class Settings
     /**
      * Setup details for the database variable that needs to be updated to enable maintenance mode for the service.
      *
-     * @param string|null $schema         Schema name
-     * @param string|null $table          Table name
-     * @param string|null $setting_column Column, where to search for the setting
-     * @param string|null $setting_name   Setting name
-     * @param string|null $value_column   Column, where the value of the setting is stored
+     * @param null|string $schema         Schema name
+     * @param null|string $table          Table name
+     * @param null|string $setting_column Column, where to search for the setting
+     * @param null|string $setting_name   Setting name
+     * @param null|string $value_column   Column, where the value of the setting is stored
      *
      * @return $this
      */
@@ -363,12 +363,12 @@ final class Settings
      *
      * @param string       $schema Schema name
      * @param string       $table  Table name
-     * @param string|array $column Column(s) name
+     * @param array|string $column Column(s) name
      * @param bool         $delete Whether to remove the column(s) from the list
      *
      * @return self
      */
-    public function excludeColumn(string $schema, string $table, string|array $column, bool $delete = false): self
+    public function excludeColumn(string $schema, string $table, array|string $column, bool $delete = false): self
     {
         if (\is_string($column)) {
             $column = [$column];
@@ -392,12 +392,12 @@ final class Settings
      *
      * @param string       $schema Schema name
      * @param string       $table  Table name
-     * @param string|array $column Column(s) name
+     * @param array|string $column Column(s) name
      * @param bool         $delete Whether to remove the column(s) from the list
      *
      * @return self
      */
-    public function includeColumn(string $schema, string $table, string|array $column, bool $delete = false): self
+    public function includeColumn(string $schema, string $table, array|string $column, bool $delete = false): self
     {
         if (\is_string($column)) {
             $column = [$column];

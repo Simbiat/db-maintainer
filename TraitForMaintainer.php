@@ -8,29 +8,29 @@ use Simbiat\Database\Query;
 use Simbiat\StringHelpers\Sanitize;
 
 /**
- * Collection of methods shared by classes in Maintainer namespace
+ * Collection of methods shared by classes in Maintainer namespace.
  */
 trait TraitForMaintainer
 {
     /**
      * PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      *
-     * @var \PDO|null
+     * @var null|\PDO
      */
-    private(set) \PDO|null $dbh = null;
+    public private(set) ?\PDO $dbh = null;
 
     /**
      * PDO Cron database prefix. Only Latin characters, underscores, dashes, and numbers are allowed. Maximum 53 symbols.
      *
      * @var string
      */
-    private(set) string $prefix = 'maintainer__' {
+    public private(set) string $prefix = 'maintainer__' {
         /**
          * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81560
          */
         set {
             if (!Sanitize::dbName($value, true, 49)) {
-        throw new \UnexpectedValueException('Invalid database prefix');
+                throw new \UnexpectedValueException('Invalid database prefix');
             }
 
             $this->prefix = $value;
@@ -38,7 +38,7 @@ trait TraitForMaintainer
     }
 
     /**
-     * Get library settings
+     * Get library settings.
      *
      * @return array
      */
@@ -75,7 +75,7 @@ trait TraitForMaintainer
         // Get database version
         $version = Query::query('SELECT VERSION();', return: 'column')[0];
         $features['mariadb'] = \mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false;
-        $analyze_persistent = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
+        $analyze_persistent = Query::query(/* @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
         // If the value is `never`, it means MariaDB does not use persistent statistics at all.
         if (
             \is_string($analyze_persistent)
@@ -83,8 +83,8 @@ trait TraitForMaintainer
         ) {
             $features['analyze_persistent'] = true;
             // If it's `complementary` or `preferably`, then statistics are already included in regular ANALYZE.
-            $features['skip_persistent'] =
-                \strcasecmp($analyze_persistent, 'complementary') === 0
+            $features['skip_persistent']
+                = \strcasecmp($analyze_persistent, 'complementary') === 0
                 || \strcasecmp($analyze_persistent, 'preferably') === 0;
         } else {
             $features['analyze_persistent'] = false;
@@ -104,11 +104,11 @@ trait TraitForMaintainer
             $features['auto_histogram'] = false;
         }
         // Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
-        $innodb_file_per_table = Query::query(/** @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
+        $innodb_file_per_table = Query::query(/* @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
         $features['file_per_table'] = \strcasecmp($innodb_file_per_table, 'ON') === 0;
         // Check if INNODB Compression is supported. MariaDB 10.6+ only.
-        $features['page_compression'] =
-            $features['mariadb']
+        $features['page_compression']
+            = $features['mariadb']
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')
             ? true
             : false;
@@ -132,8 +132,8 @@ trait TraitForMaintainer
             $features['can_flush_optimizer'] = false;
         }
         // SEQUENCE engine supports CHECK in MariaDB since version 12
-        $features['sequence_check'] =
-            $features['mariadb']
+        $features['sequence_check']
+            = $features['mariadb']
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')
             ? true
             : false;
@@ -142,12 +142,12 @@ trait TraitForMaintainer
     }
 
     /**
-     * Class constructor
+     * Class constructor.
      *
-     * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     * @param null|\PDO $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
-    private function init(\PDO|null $dbh = null, string $prefix = 'maintainer__'): void
+    private function init(?\PDO $dbh = null, string $prefix = 'maintainer__'): void
     {
         // Check that a database connection is established
         if ($dbh !== null) {
@@ -159,14 +159,14 @@ trait TraitForMaintainer
     }
 
     /**
-     * Sanitize schema and optional table name to prevent injection
+     * Sanitize schema and optional table name to prevent injection.
      *
      * @param string       $schema Schema name
-     * @param string|array $table  Optional table name(s)
+     * @param array|string $table  Optional table name(s)
      *
      * @return void
      */
-    private function schemaTableChecker(string $schema, string|array $table = []): void
+    private function schemaTableChecker(string $schema, array|string $table = []): void
     {
         if (!Sanitize::dbName($schema)) {
             throw new \UnexpectedValueException('Invalid database schema `'.$schema.'`');
@@ -183,13 +183,13 @@ trait TraitForMaintainer
     }
 
     /**
-     * Helper function to normalize table name(s)
+     * Helper function to normalize table name(s).
      *
-     * @param string|array<string> $table
+     * @param array<string>|string $table
      *
      * @return array<string>
      */
-    private function normalizeTable(string|array $table = []): array
+    private function normalizeTable(array|string $table = []): array
     {
         if (\is_string($table)) {
             $table = Sanitize::whiteString($table)

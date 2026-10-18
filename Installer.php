@@ -15,18 +15,18 @@ final class Installer
     use TraitForMaintainer;
 
     /**
-     * Class constructor
+     * Class constructor.
      *
-     * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     * @param null|\PDO $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
      */
-    public function __construct(\PDO|null $dbh = null, string $prefix = 'maintainer__')
+    public function __construct(?\PDO $dbh = null, string $prefix = 'maintainer__')
     {
         $this->init($dbh, $prefix);
     }
 
     /**
-     * Install the necessary tables
+     * Install the necessary tables.
      *
      * @return bool|string
      */
@@ -36,7 +36,7 @@ final class Installer
     }
 
     /**
-     * Get the current version of the Maintainer from the database perspective (can be different from the library version)
+     * Get the current version of the Maintainer from the database perspective (can be different from the library version).
      *
      * @return string
      */
