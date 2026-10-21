@@ -29,7 +29,7 @@ trait TraitForMaintainer
          * @noinspection PhpMethodNamingConventionInspection https://youtrack.jetbrains.com/issue/WI-81560
          */
         set {
-            if (!Sanitize::dbName($value, true, 49)) {
+            if (!Sanitize::dbName($value, allow_empty: true, max_length: 49)) {
                 throw new \UnexpectedValueException('Invalid database prefix');
             }
 
@@ -44,20 +44,23 @@ trait TraitForMaintainer
      */
     final public function getSettings(): array
     {
-        $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix.'settings` WHERE `setting` NOT IN (\'version\')', return: 'pair');
+        $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix."settings` WHERE `setting` NOT IN ('version')", return: 'pair');
         // Convert to booleans
         foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
             $settings[$setting] = (bool) $settings[$setting];
         }
+
         // Get FULLTEXT settings
-        $innodb_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'innodb_ft_min_token_size\', \'innodb_ft_max_token_size\', \'innodb_ft_server_stopword_table\', \'innodb_ft_user_stopword_table\', \'innodb_ft_enable_stopword\', \'ngram_token_size\') ORDER BY `VARIABLE_NAME`;', return: 'value');
-        $myisam_fulltext = Query::query('SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN (\'ft_min_word_len\', \'ft_max_word_len\', \'ft_stopword_file\') ORDER BY `VARIABLE_NAME`;', return: 'value');
+        $innodb_fulltext = Query::query("SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN ('innodb_ft_min_token_size', 'innodb_ft_max_token_size', 'innodb_ft_server_stopword_table', 'innodb_ft_user_stopword_table', 'innodb_ft_enable_stopword', 'ngram_token_size') ORDER BY `VARIABLE_NAME`;", return: 'value');
+        $myisam_fulltext = Query::query("SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN ('ft_min_word_len', 'ft_max_word_len', 'ft_stopword_file') ORDER BY `VARIABLE_NAME`;", return: 'value');
         if (empty($settings['innodb_fulltext'])) {
             $settings['innodb_fulltext'] = $innodb_fulltext;
         }
+
         if (empty($settings['myisam_fulltext'])) {
             $settings['myisam_fulltext'] = $myisam_fulltext;
         }
+
         $settings['innodb_fulltext_current'] = $innodb_fulltext;
         $settings['myisam_fulltext_current'] = $myisam_fulltext;
 
@@ -75,7 +78,7 @@ trait TraitForMaintainer
         // Get database version
         $version = Query::query('SELECT VERSION();', return: 'column')[0];
         $features['mariadb'] = \mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false;
-        $analyze_persistent = Query::query(/* @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'use_stat_tables\';', fetch_argument: 1, return: 'value');
+        $analyze_persistent = Query::query(/* @lang SQL */ "SHOW GLOBAL VARIABLES WHERE `variable_name`='use_stat_tables';", fetch_argument: 1, return: 'value');
         // If the value is `never`, it means MariaDB does not use persistent statistics at all.
         if (
             \is_string($analyze_persistent)
@@ -90,28 +93,26 @@ trait TraitForMaintainer
             $features['analyze_persistent'] = false;
             $features['skip_persistent'] = true;
         }
+
         // Check if histograms are supported. MySQL 8+.
         if (
             !$features['mariadb']
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '8.0.0', 'ge')
         ) {
             $features['histogram'] = true;
-            $features['auto_histogram'] = \version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge')
-                ? true
-                : false;
+            $features['auto_histogram'] = \version_compare(\mb_strtolower($version, 'UTF-8'), '8.4.0', 'ge');
         } else {
             $features['histogram'] = false;
             $features['auto_histogram'] = false;
         }
+
         // Checking if we are using 'file per table' for INNODB tables. This means we can use COMPRESSED and DYNAMIC as ROW FORMAT
-        $innodb_file_per_table = Query::query(/* @lang SQL */ 'SHOW GLOBAL VARIABLES WHERE `variable_name`=\'innodb_file_per_table\';', fetch_argument: 1, return: 'value') ?? '';
+        $innodb_file_per_table = Query::query(/* @lang SQL */ "SHOW GLOBAL VARIABLES WHERE `variable_name`='innodb_file_per_table';", fetch_argument: 1, return: 'value') ?? '';
         $features['file_per_table'] = \strcasecmp($innodb_file_per_table, 'ON') === 0;
         // Check if INNODB Compression is supported. MariaDB 10.6+ only.
         $features['page_compression']
             = $features['mariadb']
-            && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge')
-            ? true
-            : false;
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '10.6.0', 'ge');
         // Check if SET GLOBAL is possible
         $features['set_global'] = Query::query('SELECT COUNT(*) as `count` FROM `information_schema`.`USER_PRIVILEGES` WHERE GRANTEE=CONCAT(\'\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', 1), \'\\\'@\\\'\', SUBSTRING_INDEX(CURRENT_USER(), \'@\', -1), \'\\\'\') AND `PRIVILEGE_TYPE` IN (\'SUPER\', \'SYSTEM_VARIABLES_ADMIN\');', return: 'count') > 0;
         // Check if FLUSH is possible
@@ -131,12 +132,11 @@ trait TraitForMaintainer
         } else {
             $features['can_flush_optimizer'] = false;
         }
+
         // SEQUENCE engine supports CHECK in MariaDB since version 12
         $features['sequence_check']
             = $features['mariadb']
-            && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge')
-            ? true
-            : false;
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge');
 
         return $features;
     }
@@ -155,6 +155,7 @@ trait TraitForMaintainer
             // Establish it, if possible
             new Query($dbh);
         }
+
         $this->prefix = $prefix;
     }
 
@@ -171,9 +172,11 @@ trait TraitForMaintainer
         if (!Sanitize::dbName($schema)) {
             throw new \UnexpectedValueException('Invalid database schema `'.$schema.'`');
         }
+
         if (\preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
             throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
         }
+
         $table = $this->normalizeTable($table);
         foreach ($table as $table_name) {
             if (!Sanitize::dbName($table_name)) {
@@ -192,7 +195,7 @@ trait TraitForMaintainer
     private function normalizeTable(array|string $table = []): array
     {
         if (\is_string($table)) {
-            $table = Sanitize::whiteString($table)
+            return Sanitize::whiteString($table)
                 ? []
                 : [$table];
         }

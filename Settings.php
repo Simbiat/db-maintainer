@@ -40,7 +40,7 @@ final class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (!\in_array($action, ['analyze', 'check', 'compress', 'optimize'], true)) {
+        if (!\in_array($action, ['analyze', 'check', 'compress', 'optimize'], strict: true)) {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
         }
 
@@ -67,7 +67,7 @@ final class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (!\in_array($action, ['analyze', 'check', 'fulltext_rebuild', 'optimize'], true)) {
+        if (!\in_array($action, ['analyze', 'check', 'fulltext_rebuild', 'optimize'], strict: true)) {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
         }
 
@@ -94,13 +94,14 @@ final class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (!\in_array($action, ['analyze', 'check', 'optimize'], true)) {
+        if (!\in_array($action, ['analyze', 'check', 'optimize'], strict: true)) {
             throw new \UnexpectedValueException('Unsupported action type `'.$action.'`');
         }
 
         if ($days < 1) {
             $days = 1;
         }
+
         Query::query('UPDATE `'.$this->prefix.'tables` SET `'.$action.'_days_delay`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
             ':table' => [$table, 'in', 'string'],
@@ -124,7 +125,7 @@ final class Settings
     {
         $this->schemaTableChecker($schema, $table);
         $table = $this->normalizeTable($table);
-        if (!\in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], true)) {
+        if (!\in_array($setting, ['use_checksum', 'exact_rows', 'only_if_changed', 'analyze_histogram', 'analyze_histogram_auto'], strict: true)) {
             throw new \UnexpectedValueException('Unsupported setting `'.$setting.'`');
         }
 
@@ -153,10 +154,12 @@ final class Settings
         if ($threshold < 0) {
             $threshold = 0.0;
         }
+
         // Values over 100 do not make sense either, so reverting them to default 10
         if ($threshold > 100) {
             $threshold = 10.0;
         }
+
         $table = $this->normalizeTable($table);
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_fragmentation`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
@@ -183,6 +186,7 @@ final class Settings
         if ($threshold < 0) {
             $threshold = 0;
         }
+
         $table = $this->normalizeTable($table);
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_rows_delta`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
@@ -209,6 +213,7 @@ final class Settings
         if ($threshold < 0) {
             $threshold = 0;
         }
+
         $table = $this->normalizeTable($table);
         Query::query('UPDATE `'.$this->prefix.'tables` SET `optimize_fulltext_deleted`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
@@ -235,10 +240,12 @@ final class Settings
         if ($threshold < 0) {
             $threshold = 0.0;
         }
+
         // Values over 100 do not make sense either, so reverting them to default 10
         if ($threshold > 100) {
             $threshold = 10.0;
         }
+
         $table = $this->normalizeTable($table);
         Query::query('UPDATE `'.$this->prefix.'tables` SET `threshold_size_change`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
@@ -265,10 +272,12 @@ final class Settings
         if ($buckets < 1) {
             $buckets = 1;
         }
+
         // Values over 100 do not make sense either, so reverting them to default 10
         if ($buckets > 1024) {
             $buckets = 1024;
         }
+
         $table = $this->normalizeTable($table);
         Query::query('UPDATE `'.$this->prefix.'tables` SET `analyze_histogram_buckets`=:value WHERE `schema`=:schema'.($table === [] ? '' : 'AND `table` IN (:table)').';', [
             ':schema' => $schema,
@@ -289,7 +298,7 @@ final class Settings
      */
     public function setGlobalFineTune(#[ExpectedValues(['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'])] string $setting, bool $flag): self
     {
-        if (!\in_array($setting, ['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'], true)) {
+        if (!\in_array($setting, ['prefer_compressed', 'prefer_extended', 'compress_auto_run', 'repair_auto_run', 'use_flush'], strict: true)) {
             throw new \UnexpectedValueException('Unsupported setting `'.$setting.'`');
         }
 
@@ -322,33 +331,34 @@ final class Settings
                 throw new \UnexpectedValueException('Invalid maintenance argument provided');
             }
         }
+
         $queries = [];
         $queries[] = [
-            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_schema_name\';',
+            'UPDATE `'.$this->prefix."settings` SET `value`=:value WHERE `setting`='maintenance_schema_name';",
             [
                 ':value' => [$schema ?? null, $schema === null ? 'null' : 'string'],
             ],
         ];
         $queries[] = [
-            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_table_name\';',
+            'UPDATE `'.$this->prefix."settings` SET `value`=:value WHERE `setting`='maintenance_table_name';",
             [
                 ':value' => [$table ?? null, $table === null ? 'null' : 'string'],
             ],
         ];
         $queries[] = [
-            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_column\';',
+            'UPDATE `'.$this->prefix."settings` SET `value`=:value WHERE `setting`='maintenance_setting_column';",
             [
                 ':value' => [$setting_column ?? null, $setting_column === null ? 'null' : 'string'],
             ],
         ];
         $queries[] = [
-            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_setting_name\';',
+            'UPDATE `'.$this->prefix."settings` SET `value`=:value WHERE `setting`='maintenance_setting_name';",
             [
                 ':value' => [$setting_name ?? null, $setting_name === null ? 'null' : 'string'],
             ],
         ];
         $queries[] = [
-            'UPDATE `'.$this->prefix.'settings` SET `value`=:value WHERE `setting`=\'maintenance_value_column\';',
+            'UPDATE `'.$this->prefix."settings` SET `value`=:value WHERE `setting`='maintenance_value_column';",
             [
                 ':value' => [$value_column ?? null, $value_column === null ? 'null' : 'string'],
             ],
@@ -373,11 +383,13 @@ final class Settings
         if (\is_string($column)) {
             $column = [$column];
         }
+
         foreach ([$schema, $table, $column] as $argument) {
             if (!Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid argument provided');
             }
         }
+
         if ($delete) {
             Query::query('INSERT IGNORE INTO `'.$this->prefix.'columns_exclude` (`schema`, `table`, `column`) VALUES (:schema, :table, :column);', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
         } else {
@@ -402,11 +414,13 @@ final class Settings
         if (\is_string($column)) {
             $column = [$column];
         }
+
         foreach ([$schema, $table, $column] as $argument) {
             if (!Sanitize::dbName($argument)) {
                 throw new \UnexpectedValueException('Invalid argument provided');
             }
         }
+
         if ($delete) {
             Query::query('INSERT IGNORE INTO `'.$this->prefix.'columns_include` (`schema`, `table`, `column`) VALUES (:schema, :table, :column);', [':schema' => $schema, ':table' => $table, ':column' => [$column, 'in', 'string']]);
         } else {

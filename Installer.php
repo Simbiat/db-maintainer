@@ -28,9 +28,9 @@ final class Installer
     /**
      * Install the necessary tables.
      *
-     * @return bool|string
+     * @return bool
      */
-    public function install(): bool|string
+    public function install(): bool
     {
         return new \Simbiat\Database\Installer($this->dbh)::install(__DIR__.'/sql/*.sql', $this->getVersion(), 'maintainer__', $this->prefix);
     }
@@ -44,7 +44,7 @@ final class Installer
     {
         // Check if the settings table exists
         if (Manage::checkTable($this->prefix.'settings') === 1) {
-            return Query::query('SELECT `value` FROM `'.$this->prefix.'settings` WHERE `setting`=\'version\'', return: 'value');
+            return Query::query('SELECT `value` FROM `'.$this->prefix."settings` WHERE `setting`='version'", return: 'value');
         }
 
         return '0.0.0';
