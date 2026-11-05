@@ -17,8 +17,10 @@ final class Installer
     /**
      * Class constructor.
      *
-     * @param null|\PDO $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
+     *
+     * @throws \RuntimeException
      */
     public function __construct(?\PDO $dbh = null, string $prefix = 'maintainer__')
     {
@@ -26,19 +28,11 @@ final class Installer
     }
 
     /**
-     * Install the necessary tables.
-     *
-     * @return bool
-     */
-    public function install(): bool
-    {
-        return new \Simbiat\Database\Installer($this->dbh)::install(__DIR__.'/sql/*.sql', $this->getVersion(), 'maintainer__', $this->prefix);
-    }
-
-    /**
      * Get the current version of the Maintainer from the database perspective (can be different from the library version).
      *
      * @return string
+     *
+     * @throws \RuntimeException|\UnexpectedValueException
      */
     public function getVersion(): string
     {
@@ -48,5 +42,17 @@ final class Installer
         }
 
         return '0.0.0';
+    }
+
+    /**
+     * Install the necessary tables.
+     *
+     * @return bool
+     *
+     * @throws \RuntimeException
+     */
+    public function install(): bool
+    {
+        return new \Simbiat\Database\Installer($this->dbh)::install(__DIR__.'/sql/*.sql', $this->getVersion(), 'maintainer__', $this->prefix);
     }
 }

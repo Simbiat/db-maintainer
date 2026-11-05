@@ -15,7 +15,7 @@ trait TraitForMaintainer
     /**
      * PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      *
-     * @var null|\PDO
+     * @var \PDO|null
      */
     public private(set) ?\PDO $dbh = null;
 
@@ -38,39 +38,11 @@ trait TraitForMaintainer
     }
 
     /**
-     * Get library settings.
-     *
-     * @return array
-     */
-    final public function getSettings(): array
-    {
-        $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix."settings` WHERE `setting` NOT IN ('version')", return: 'pair');
-        // Convert to booleans
-        foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
-            $settings[$setting] = (bool) $settings[$setting];
-        }
-
-        // Get FULLTEXT settings
-        $innodb_fulltext = Query::query("SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN ('innodb_ft_min_token_size', 'innodb_ft_max_token_size', 'innodb_ft_server_stopword_table', 'innodb_ft_user_stopword_table', 'innodb_ft_enable_stopword', 'ngram_token_size') ORDER BY `VARIABLE_NAME`;", return: 'value');
-        $myisam_fulltext = Query::query("SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN ('ft_min_word_len', 'ft_max_word_len', 'ft_stopword_file') ORDER BY `VARIABLE_NAME`;", return: 'value');
-        if (empty($settings['innodb_fulltext'])) {
-            $settings['innodb_fulltext'] = $innodb_fulltext;
-        }
-
-        if (empty($settings['myisam_fulltext'])) {
-            $settings['myisam_fulltext'] = $myisam_fulltext;
-        }
-
-        $settings['innodb_fulltext_current'] = $innodb_fulltext;
-        $settings['myisam_fulltext_current'] = $myisam_fulltext;
-
-        return $settings;
-    }
-
-    /**
      * Get supported features.
      *
      * @return array
+     *
+     * @throws \RuntimeException|\UnexpectedValueException
      */
     final public function getFeatures(): array
     {
@@ -142,10 +114,44 @@ trait TraitForMaintainer
     }
 
     /**
+     * Get library settings.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws \RuntimeException|\UnexpectedValueException
+     */
+    final public function getSettings(): array
+    {
+        $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix."settings` WHERE `setting` NOT IN ('version')", return: 'pair');
+        // Convert to booleans
+        foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {
+            $settings[$setting] = (bool) $settings[$setting];
+        }
+
+        // Get FULLTEXT settings
+        $innodb_fulltext = Query::query("SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN ('innodb_ft_min_token_size', 'innodb_ft_max_token_size', 'innodb_ft_server_stopword_table', 'innodb_ft_user_stopword_table', 'innodb_ft_enable_stopword', 'ngram_token_size') ORDER BY `VARIABLE_NAME`;", return: 'value');
+        $myisam_fulltext = Query::query("SELECT GROUP_CONCAT(`VARIABLE_VALUE`) AS `settings` FROM `INFORMATION_SCHEMA`.`GLOBAL_VARIABLES` WHERE `VARIABLE_NAME` IN ('ft_min_word_len', 'ft_max_word_len', 'ft_stopword_file') ORDER BY `VARIABLE_NAME`;", return: 'value');
+        if (empty($settings['innodb_fulltext'])) {
+            $settings['innodb_fulltext'] = $innodb_fulltext;
+        }
+
+        if (empty($settings['myisam_fulltext'])) {
+            $settings['myisam_fulltext'] = $myisam_fulltext;
+        }
+
+        $settings['innodb_fulltext_current'] = $innodb_fulltext;
+        $settings['myisam_fulltext_current'] = $myisam_fulltext;
+
+        return $settings;
+    }
+
+    /**
      * Class constructor.
      *
-     * @param null|\PDO $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
+     * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
      * @param string    $prefix Maintainer database prefix.
+     *
+     * @throws \RuntimeException
      */
     private function init(?\PDO $dbh = null, string $prefix = 'maintainer__'): void
     {
@@ -157,32 +163,6 @@ trait TraitForMaintainer
         }
 
         $this->prefix = $prefix;
-    }
-
-    /**
-     * Sanitize schema and optional table name to prevent injection.
-     *
-     * @param string       $schema Schema name
-     * @param array|string $table  Optional table name(s)
-     *
-     * @return void
-     */
-    private function schemaTableChecker(string $schema, array|string $table = []): void
-    {
-        if (!Sanitize::dbName($schema)) {
-            throw new \UnexpectedValueException('Invalid database schema `'.$schema.'`');
-        }
-
-        if (\preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
-            throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
-        }
-
-        $table = $this->normalizeTable($table);
-        foreach ($table as $table_name) {
-            if (!Sanitize::dbName($table_name)) {
-                throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
-            }
-        }
     }
 
     /**
@@ -201,5 +181,33 @@ trait TraitForMaintainer
         }
 
         return $table;
+    }
+
+    /**
+     * Sanitize schema and optional table name to prevent injection.
+     *
+     * @param string       $schema Schema name
+     * @param array|string $table  Optional table name(s)
+     *
+     * @return void
+     *
+     * @throws \UnexpectedValueException
+     */
+    private function schemaTableChecker(string $schema, array|string $table = []): void
+    {
+        if (!Sanitize::dbName($schema)) {
+            throw new \UnexpectedValueException('Invalid database schema `'.$schema.'`');
+        }
+
+        if (\preg_match('/^information_schema|performance_schema|mysql|sys$/ui', $schema) === 1) {
+            throw new \UnexpectedValueException('System schema `'.$schema.'` is not supported');
+        }
+
+        $table = $this->normalizeTable($table);
+        foreach ($table as $table_name) {
+            if (!Sanitize::dbName($table_name)) {
+                throw new \UnexpectedValueException('Invalid table name `'.$table_name.'`');
+            }
+        }
     }
 }
