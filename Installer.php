@@ -12,7 +12,7 @@ use Simbiat\Database\Query;
  */
 final class Installer
 {
-    use TraitForMaintainer;
+    use MaintainerTrait;
 
     /**
      * Class constructor.

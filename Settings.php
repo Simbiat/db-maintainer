@@ -15,7 +15,7 @@ use Simbiat\StringHelpers\Sanitize;
  */
 final class Settings
 {
-    use TraitForMaintainer;
+    use MaintainerTrait;
 
     /**
      * Class constructor.

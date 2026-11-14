@@ -15,19 +15,19 @@ use Simbiat\StringHelpers\Sanitize;
  */
 final class Analyzer
 {
-    use TraitForMaintainer;
+    use MaintainerTrait;
 
     /**
      * List of supported features.
      *
-     * @var array
+     * @var array{mariadb: bool, analyze_persistent: bool, skip_persistent: bool, histogram: bool, auto_histogram: bool, file_per_table: bool, page_compression: bool, set_global: bool, can_flush: bool, can_flush_optimizer: bool, sequence_check: bool}
      */
     private array $features;
 
     /**
      * Library settings.
      *
-     * @var array
+     * @var array{compress_auto_run: bool, innodb_fulltext: string, maintenance_schema_name: string, maintenance_setting_column: string, maintenance_setting_name: string, maintenance_table_name: string, maintenance_value_column: string, myisam_fulltext: string, prefer_compressed: bool, prefer_extended: bool, repair_auto_run: bool, use_flush: bool, version: string, innodb_fulltext_current: string, myisam_fulltext_current: string}
      */
     private array $settings;
 
@@ -271,10 +271,10 @@ final class Analyzer
     /**
      * Analyze tables to check if running a maintenance task if recommended.
      *
-     * @param string       $schema Schema name
-     * @param array|string $table  Optional table name(s)
+     * @param string                    $schema Schema name
+     * @param array<int, string>|string $table  Optional table name(s)
      *
-     * @return array<int, array<string, bool|string>>
+     * @return array<int, array{schema: string, table: string, check: bool, check_auto_run: bool, repair: bool, compress: bool, analyze: bool, analyze_auto_run: bool, optimize: bool, optimize_fulltext: bool, optimize_auto_run: bool, fulltext_rebuild: bool, fulltext_rebuild_auto_run: bool, analyze_histogram: bool}>
      *
      * @throws \RuntimeException|\UnexpectedValueException
      */
@@ -564,7 +564,6 @@ final class Analyzer
         }
 
         // Get all tables for which an action was suggested
-        /** @var array<int, array<string, mixed>> $results */
         $results = Query::query(
             'SELECT `schema`, `table`, `check`, `check_auto_run`, `repair`, `compress`, `analyze`, `analyze_auto_run`, `optimize`, `optimize_fulltext`, `optimize_auto_run`, `fulltext_rebuild`, `fulltext_rebuild_auto_run`, `analyze_histogram`
                                     FROM `'.$this->prefix.'tables`
@@ -611,7 +610,7 @@ final class Analyzer
         // We need to check that the `TEMPORARY` column is available in the `TABLES` table because there are cases when it's not available (MySQL or older version of MariaDB)
         $temp_table_check = Query::query("SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA` = 'information_schema' AND `TABLE_NAME` = 'TABLES' AND `COLUMN_NAME` = 'TEMPORARY';", return: 'all');
         // Delete non-existent old tables
-        Query::query(
+        (void) Query::query(
             [
                 'DELETE FROM `'.$this->prefix.'tables` WHERE `schema`=:schema AND (`schema`, `table`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME` FROM `information_schema`.`TABLES` WHERE `TABLE_SCHEMA`=:schema);',
                 'DELETE FROM `'.$this->prefix.'columns_include` WHERE `schema`=:schema AND (`schema`, `table`, `column`) NOT IN (SELECT `TABLE_SCHEMA`, `TABLE_NAME`, `COLUMN_NAME` FROM `information_schema`.`COLUMNS` WHERE `TABLE_SCHEMA`=:schema);',
@@ -620,7 +619,7 @@ final class Analyzer
             [':schema' => $schema],
         );
         // Insert current basic information about tables
-        Query::query(
+        (void) Query::query(
             'INSERT INTO `'.$this->prefix.'tables` (`schema`, `table`, `analyzed`, `engine`, `row_format`, `has_fulltext`, `page_compressed`, `rows_current`, `update_time`, `data_length_current`, `index_length_current`, `data_free_current`, `check_date`)
             SELECT `TABLE_SCHEMA`,
                    `TABLE_NAME`,
@@ -658,7 +657,7 @@ final class Analyzer
 
         // Try to get tables data from InnoDB persistent statistics
         try {
-            Query::query(
+            (void) Query::query(
                 'UPDATE `'.$this->prefix.'tables`
                                LEFT JOIN `mysql`.`innodb_table_stats` AS `stats` ON `'.$this->prefix.'tables`.`schema`=`stats`.`database_name` AND `'.$this->prefix.'tables`.`table`=`stats`.`table_name`
                                 SET `'.$this->prefix.'tables`.`rows_current` = IF(`'.$this->prefix.'tables`.`update_time` IS NULL OR `stats`.`last_update`>=`'.$this->prefix.'tables`.`update_time`, `stats`.`n_rows`, `'.$this->prefix.'tables`.`rows_current`),
@@ -697,7 +696,7 @@ final class Analyzer
             $count = (string) Query::query('SELECT COUNT(*) AS `count` FROM `'.$schema.'`.`'.$data['table'].'`;', return: 'value');
 
             try {
-                Query::query(
+                (void) Query::query(
                     'UPDATE `'.$this->prefix.'tables`
                                 SET `'.$this->prefix.'tables`.`rows_current`=:count, `rows_date`=CURRENT_TIMESTAMP(6)
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',
@@ -727,7 +726,7 @@ final class Analyzer
             }
 
             try {
-                Query::query(
+                (void) Query::query(
                     'UPDATE `'.$this->prefix.'tables`
                                 SET `'.$this->prefix.'tables`.`checksum_current`=:checksum, `checksum_date`=CURRENT_TIMESTAMP(6)
                                 WHERE `'.$this->prefix.'tables`.`schema`=:schema AND `'.$this->prefix.'tables`.`table`=:table;',

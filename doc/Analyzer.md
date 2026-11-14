@@ -128,6 +128,8 @@ array(1) {
     bool(false)
     ["optimize_auto_run"]=>
     bool(true)
+    ["optimize_fulltext"]=>
+    bool(false)
     ["fulltext_rebuild"]=>
     bool(false)
     ["fulltext_rebuild_auto_run"]=>

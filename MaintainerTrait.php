@@ -10,7 +10,7 @@ use Simbiat\StringHelpers\Sanitize;
 /**
  * Collection of methods shared by classes in Maintainer namespace.
  */
-trait TraitForMaintainer
+trait MaintainerTrait
 {
     /**
      * PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -40,7 +40,7 @@ trait TraitForMaintainer
     /**
      * Get supported features.
      *
-     * @return array
+     * @return array{mariadb: bool, analyze_persistent: bool, skip_persistent: bool, histogram: bool, auto_histogram: bool, file_per_table: bool, page_compression: bool, set_global: bool, can_flush: bool, can_flush_optimizer: bool, sequence_check: bool}
      *
      * @throws \RuntimeException|\UnexpectedValueException
      */
@@ -116,12 +116,13 @@ trait TraitForMaintainer
     /**
      * Get library settings.
      *
-     * @return array<string, mixed>
+     * @return array{compress_auto_run: bool, innodb_fulltext: string, maintenance_schema_name: string, maintenance_setting_column: string, maintenance_setting_name: string, maintenance_table_name: string, maintenance_value_column: string, myisam_fulltext: string, prefer_compressed: bool, prefer_extended: bool, repair_auto_run: bool, use_flush: bool, version: string, innodb_fulltext_current: string, myisam_fulltext_current: string}
      *
      * @throws \RuntimeException|\UnexpectedValueException
      */
     final public function getSettings(): array
     {
+        /** @var array{compress_auto_run: string, innodb_fulltext: string, maintenance_schema_name: string, maintenance_setting_column: string, maintenance_setting_name: string, maintenance_table_name: string, maintenance_value_column: string, myisam_fulltext: string, prefer_compressed: string, prefer_extended: string, repair_auto_run: string, use_flush: string, version: string} $settings */
         $settings = Query::query('SELECT `setting`, `value` FROM `'.$this->prefix."settings` WHERE `setting` NOT IN ('version')", return: 'pair');
         // Convert to booleans
         foreach (['compress_auto_run', 'prefer_compressed', 'prefer_extended', 'repair_auto_run', 'use_flush'] as $setting) {

@@ -13,7 +13,7 @@ use Simbiat\StringHelpers\Sanitize;
  */
 final class Commander
 {
-    use TraitForMaintainer;
+    use MaintainerTrait;
 
     /**
      * Current database name.
