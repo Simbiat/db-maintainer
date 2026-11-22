@@ -23,20 +23,6 @@ final class Commander
     public readonly ?string $current_database;
 
     /**
-     * List of supported features.
-     *
-     * @var array
-     */
-    private array $features;
-
-    /**
-     * Library settings.
-     *
-     * @var array
-     */
-    private array $settings;
-
-    /**
      * Class constructor.
      *
      * @param \PDO|null $dbh    PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -50,9 +36,9 @@ final class Commander
         // Get the current database name that we use with update queries
         $this->current_database = Query::query('SELECT DATABASE();', return: 'value');
         // Get settings
-        $this->settings = $this->getSettings();
+        $this->settings = new Settings($dbh, $prefix);
         // Get supported features
-        $this->features = $this->getFeatures();
+        $this->features = new Features($dbh);
     }
 
     /**
@@ -115,11 +101,11 @@ final class Commander
     public function check(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false, bool $auto_repair = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive|CSV'.($this->features['sequence_check'] ? '|Sequence' : '').')$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive|CSV'.($this->features->sequence_check ? '|Sequence' : '').')$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support CHECK');
         }
 
-        $commands = ['CHECK TABLE `'.$schema.'`.`'.$table.'` '.($this->settings['prefer_extended'] || $prefer_extended ? 'EXTENDED' : 'MEDIUM').';'];
+        $commands = ['CHECK TABLE `'.$schema.'`.`'.$table.'` '.($this->settings->prefer_extended || $prefer_extended ? 'EXTENDED' : 'MEDIUM').';'];
         if ($integrate) {
             /* @lang SQL */
             $commands[]
@@ -132,7 +118,7 @@ final class Commander
                 // InnoDB does not support REPAIR
                 if (\preg_match('/^(MyISAM|Aria|Archive|CSV)$/ui', $details['ENGINE']) === 1) {
                     // Set repair flag
-                    Query::query('UPDATE `'.$this->current_database.'`.`'.$this->prefix."tables` SET `repair`=1 WHERE `schema`='".$schema."' AND `table`='".$table."';");
+                    (void) Query::query('UPDATE `'.$this->current_database.'`.`'.$this->prefix."tables` SET `repair`=1 WHERE `schema`='".$schema."' AND `table`='".$table."';");
                     if ($auto_repair) {
                         if ($this->repair($schema, $table, $integrate, $run, $prefer_extended)) {
                             if ($integrate) {
@@ -199,7 +185,7 @@ final class Commander
                 throw new \UnexpectedValueException('InnoDB table `'.$schema.'`.`'.$table.'` already uses page compression');
             }
 
-            if ($this->features['page_compression']) {
+            if ($this->features->page_compression) {
                 $commands[] = 'ALTER TABLE `'.$schema.'`.`'.$table.'` ROW_FORMAT=DYNAMIC PAGE_COMPRESSED=1;';
                 if ($integrate) {
                     /* @lang SQL */
@@ -207,9 +193,9 @@ final class Commander
                         = 'UPDATE `'.$this->current_database.'`.`'.$this->prefix."tables` SET `page_compressed`=1, `row_format`='Dynamic', `compress`=0 WHERE `schema`='".$schema."' AND `table`='".$table."';";
                 }
             } elseif (
-                $this->features['file_per_table']
+                $this->features->file_per_table
                 && (
-                    $this->settings['prefer_compressed']
+                    $this->settings->prefer_compressed
                     || $prefer_compressed
                 )
             ) {
@@ -254,13 +240,13 @@ final class Commander
     public function flush(bool $run = false): bool|string
     {
         $command = '';
-        if ($this->features['mariadb']) {
-            if ($this->features['can_flush']) {
+        if ($this->features->mariadb) {
+            if ($this->features->can_flush) {
                 /** @lang SQL */
                 $command
                     = 'FLUSH LOCAL HOSTS, QUERY CACHE, TABLE_STATISTICS, INDEX_STATISTICS, USER_STATISTICS;';
             }
-        } elseif ($this->features['can_flush_optimizer']) {
+        } elseif ($this->features->can_flush_optimizer) {
             /** @lang SQL */
             $command
                 = 'FLUSH OPTIMIZER_COSTS;';
@@ -292,7 +278,7 @@ final class Commander
      */
     public function fulltextOptimize(string $schema, string $table, bool $integrate = false, bool $run = false): array|bool
     {
-        if (!$this->features['set_global']) {
+        if (!$this->features->set_global) {
             throw new \UnexpectedValueException('Lacking `SET GLOBAL` permission');
         }
 
@@ -326,7 +312,7 @@ final class Commander
             $commands[]
                 = 'UPDATE `'.$this->current_database.'`.`'.$this->prefix."tables` SET `optimize_fulltext_date`=CURRENT_TIMESTAMP(6), `optimize_fulltext`=0 WHERE `schema`='".$schema."' AND `table`='".$table."';";
             if ($run) {
-                Query::query(\array_last($commands));
+                (void) Query::query(\array_last($commands));
             }
 
             // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
@@ -378,7 +364,7 @@ final class Commander
             $commands[]
                 = 'UPDATE `'.$this->current_database.'`.`'.$this->prefix."tables` SET `fulltext_rebuild_date`=CURRENT_TIMESTAMP(6), `fulltext_rebuild`=0 WHERE `schema`='".$schema."' AND `table`='".$table."';";
             if ($run) {
-                Query::query(\array_last($commands));
+                (void) Query::query(\array_last($commands));
             }
 
             // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
@@ -417,11 +403,11 @@ final class Commander
 
         // Don't do anything if neither histograms nor persistent statistics are supported or if persistent statistics are supported, but already covered by regular ANALYZE (unless we enforce them)
         if (
-            !$this->features['histogram']
+            !$this->features->histogram
             && (
-                !$this->features['analyze_persistent']
+                !$this->features->analyze_persistent
                 || (
-                    $this->features['skip_persistent']
+                    $this->features->skip_persistent
                     && !$no_skip
                 )
             )
@@ -435,7 +421,7 @@ final class Commander
 
         $settings_from_library = $this->getHistogramSettings($schema, $table);
         $columns = Query::query(
-            // phpcs:ignore Simbiat.SQL.DateTimeFunctions.MissingPrecision -- These are comparisons, not functions
+        // phpcs:ignore Simbiat.SQL.DateTimeFunctions.MissingPrecision -- These are comparisons, not functions
             'SELECT `COLUMN_NAME`
                     FROM `information_schema`.`COLUMNS` AS `c`
                     WHERE `TABLE_SCHEMA` = :schema
@@ -476,7 +462,7 @@ final class Commander
                                 WHERE `s`.`TABLE_SCHEMA` = `c`.`TABLE_SCHEMA`
                                   AND `s`.`TABLE_NAME` = `c`.`TABLE_NAME`
                                   AND `s`.`COLUMN_NAME` = `c`.`COLUMN_NAME`
-                        )'.($this->features['auto_histogram'] && $settings_from_library['analyze_histogram_auto'] && !$no_skip ? '
+                        )'.($this->features->auto_histogram && $settings_from_library['analyze_histogram_auto'] && !$no_skip ? '
                         /*Exclude columns that have auto-update enabled already*/
                         AND NOT EXISTS (
                             SELECT 1 AS `flag`
@@ -564,11 +550,11 @@ final class Commander
     public function maintenance(bool $activate = true, bool $run = false): bool|string
     {
         if (
-            empty($this->settings['maintenance_schema_name'])
-            || empty($this->settings['maintenance_table_name'])
-            || empty($this->settings['maintenance_setting_column'])
-            || empty($this->settings['maintenance_setting_name'])
-            || empty($this->settings['maintenance_value_column'])
+            empty($this->settings->maintenance_schema_name)
+            || empty($this->settings->maintenance_table_name)
+            || empty($this->settings->maintenance_setting_column)
+            || empty($this->settings->maintenance_setting_name)
+            || empty($this->settings->maintenance_value_column)
         ) {
             // Consider success, since the feature is not set up
             return false;
@@ -576,11 +562,11 @@ final class Commander
 
         foreach (
             [
-                $this->settings['maintenance_schema_name'],
-                $this->settings['maintenance_table_name'],
-                $this->settings['maintenance_setting_column'],
-                $this->settings['maintenance_setting_name'],
-                $this->settings['maintenance_value_column'],
+                $this->settings->maintenance_schema_name,
+                $this->settings->maintenance_table_name,
+                $this->settings->maintenance_setting_column,
+                $this->settings->maintenance_setting_name,
+                $this->settings->maintenance_value_column,
             ] as $argument
         ) {
             if (!Sanitize::dbName($argument)) {
@@ -590,7 +576,7 @@ final class Commander
 
         /** @lang SQL */
         $command
-            = 'UPDATE `'.$this->settings['maintenance_schema_name'].'`.`'.$this->settings['maintenance_table_name'].'` SET `'.$this->settings['maintenance_value_column'].'` = '.($activate ? '1' : '0').' WHERE `'.$this->settings['maintenance_setting_column']."` = '".$this->settings['maintenance_setting_name']."';";
+            = 'UPDATE `'.$this->settings->maintenance_schema_name.'`.`'.$this->settings->maintenance_table_name.'` SET `'.$this->settings->maintenance_value_column.'` = '.($activate ? '1' : '0').' WHERE `'.$this->settings->maintenance_setting_column."` = '".$this->settings->maintenance_setting_name."';";
         if ($run) {
             if (!Query::query($command)) {
                 throw new \RuntimeException('Failed to enable maintenance mode');
@@ -633,7 +619,7 @@ final class Commander
                 SET `data_length_before`=`DATA_LENGTH`, `index_length_before`=`INDEX_LENGTH`, `data_free_before`=`DATA_FREE` WHERE `schema`=\''.$schema."' AND `table`='".$table."';";
         }
 
-        if ($this->features['set_global']) {
+        if ($this->features->set_global) {
             // Ensure that we are not using fulltext_only mode
             $commands[] = 'SET GLOBAL innodb_optimize_fulltext_only=0;';
             $commands[] = 'OPTIMIZE TABLE `'.$schema.'`.`'.$table.'`;';
@@ -665,10 +651,10 @@ final class Commander
         // InnoDB recreates table and then does ANALYZE, which does not include histograms by default
         if (
             (
-                $this->features['histogram']
+                $this->features->histogram
                 || (
-                    $this->features['analyze_persistent']
-                    && !$this->features['skip_persistent']
+                    $this->features->analyze_persistent
+                    && !$this->features->skip_persistent
                     && !$no_skip
                 )
             )
@@ -685,7 +671,7 @@ final class Commander
         // Track deleted FULLTEXT entries for InnoDB tables with fulltext indexes
         if (
             $integrate
-            && $this->features['set_global']
+            && $this->features->set_global
             && $details['has_fulltext']
             && \preg_match('/^(InnoDB)$/ui', $details['ENGINE']) === 1
         ) {
@@ -722,7 +708,7 @@ final class Commander
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support REPAIR');
         }
 
-        $commands = ['REPAIR TABLE `'.$schema.'`.`'.$table.'`'.($this->settings['prefer_extended'] || $prefer_extended ? ' EXTENDED' : '').';'];
+        $commands = ['REPAIR TABLE `'.$schema.'`.`'.$table.'`'.($this->settings->prefer_extended || $prefer_extended ? ' EXTENDED' : '').';'];
         if ($integrate) {
             /* @lang SQL */
             $commands[]
@@ -759,7 +745,7 @@ final class Commander
      */
     public function updateFulltextDeleted(string $schema, string $table, bool $run = false): array|bool
     {
-        if (!$this->features['set_global']) {
+        if (!$this->features->set_global) {
             if ($run) {
                 return true;
             }
@@ -810,9 +796,9 @@ final class Commander
      */
     private function getHistogramCommand(string $schema, string $table, array $columns, array $settings_from_library): string
     {
-        if ($this->features['histogram']) {
+        if ($this->features->histogram) {
             // MySQL format
-            if ($this->features['auto_histogram']) {
+            if ($this->features->auto_histogram) {
                 $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.\implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS '.($settings_from_library['analyze_histogram_auto'] ? 'AUTO' : 'MANUAL').' UPDATE;';
             } else {
                 $command = 'ANALYZE TABLE `'.$schema.'`.`'.$table.'` UPDATE HISTOGRAM ON `'.\implode('`, `', $columns).'` WITH '.$settings_from_library['analyze_histogram_buckets'].' BUCKETS;';
@@ -838,7 +824,7 @@ final class Commander
     private function getHistogramSettings(string $schema, string $table): array
     {
         $setting_from_library = [];
-        if ($this->features['histogram']) {
+        if ($this->features->histogram) {
             // Get table settings for histograms, if available
             $setting_from_library = Query::query('SELECT `analyze_histogram_auto`, `analyze_histogram_buckets`` FROM `'.$this->current_database.'`.`'.$this->prefix."tables` WHERE `schema`='".$schema."' AND `table`='".$table."';", return: 'row');
         }
