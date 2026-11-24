@@ -91,6 +91,13 @@ final class Features
     public private(set) bool $sequence_check = false;
 
     /**
+     * Whether `CHECK` is possible for `MEMORY` engine.
+     *
+     * @var bool
+     */
+    public private(set) bool $memory_check = false;
+
+    /**
      * Class constructor.
      *
      * @param \PDO|null $dbh PDO object to use for database connection. If not provided, the class expects the existence of `\Simbiat\Database\Pool` to use that instead.
@@ -99,7 +106,8 @@ final class Features
     {
         $this->init($dbh);
         // Get database version
-        $version = Query::query('SELECT VERSION();', return: 'column')[0];
+        /** @var string $version */
+        $version = Query::query('SELECT VERSION();', return: 'value');
         $this->mariadb = \mb_stripos($version, 'MariaDB', 0, 'UTF-8') !== false;
         $analyze_persistent = Query::query(/* @lang SQL */ "SHOW GLOBAL VARIABLES WHERE `variable_name`='use_stat_tables';", fetch_argument: 1, return: 'value');
         // If the value is `never`, it means MariaDB does not use persistent statistics at all.
@@ -160,5 +168,10 @@ final class Features
         $this->sequence_check
             = $this->mariadb
             && \version_compare(\mb_strtolower($version, 'UTF-8'), '12.0.0', 'ge');
+
+        // MEMORY engine supports CHECK in MariaDB since version 12
+        $this->memory_check
+            = $this->mariadb
+            && \version_compare(\mb_strtolower($version, 'UTF-8'), '13.1.0', 'ge');
     }
 }

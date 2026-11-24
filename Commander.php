@@ -101,7 +101,7 @@ final class Commander
     public function check(string $schema, string $table, bool $integrate = false, bool $run = false, bool $prefer_extended = false, bool $auto_repair = false): array|bool
     {
         $details = $this->getTableDetails($schema, $table);
-        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive|CSV'.($this->features->sequence_check ? '|Sequence' : '').')$/ui', $details['ENGINE']) !== 1) {
+        if (\preg_match('/^(InnoDB|MyISAM|Aria|Archive|CSV'.($this->features->sequence_check ? '|Sequence' : '').($this->features->memory_check ? '|Memory' : '').')$/ui', $details['ENGINE']) !== 1) {
             throw new \UnexpectedValueException('Table `'.$schema.'`.`'.$table.'` with engine `'.$details['ENGINE'].'` does not support CHECK');
         }
 

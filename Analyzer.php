@@ -144,7 +144,7 @@ final class Analyzer
                                 /*Exclude tables for which CHECK has already been suggested*/
                                 `check`=0 AND
                                 /*Include only engines that support CHECK*/
-                                `engine` IN (\'Archive\', \'Aria\', \'CSV\', \'InnoDB\', \'MyISAM\''.($this->features->sequence_check ? ", 'Sequence'" : '').') AND
+                                `engine` IN (\'Archive\', \'Aria\', \'CSV\', \'InnoDB\', \'MyISAM\''.($this->features->sequence_check ? ", 'Sequence'" : '').($this->features->memory_check ? ", 'Memory'" : '').') AND
                                 /*Do not update anything if CHECK is not to be suggested*/
                                 `check_suggest`=1 AND
                                 /*Check if enough time has passed since last CHECK*/
